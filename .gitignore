@@ -1,0 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# dependencies — never commit these, npm install regenerates them
+node_modules/
+
+# database file — local data only, each developer has their own
+server/workouts.db
+
+# Vite build output
+dist/
+
+# environment variables — sensitive, never commit
+.env
+.env.local
+
+# OS clutter
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+/* This tells ESLint the server files run in Node.js, so require 
+   and module stop showing as errors. */
+{
+  "env": {
+    "node": true,
+    "es2021": true
+  }
+}
