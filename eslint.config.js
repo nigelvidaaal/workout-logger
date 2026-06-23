@@ -6,6 +6,17 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
   globalIgnores(['dist']),
+
+  // server files run in Node.js — require, module, process are valid globals
+  {
+    files: ['server/**/*.js'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: globals.node
+    }
+  },
+
+  // frontend files run in the browser
   {
     files: ['**/*.{js,jsx}'],
     extends: [
