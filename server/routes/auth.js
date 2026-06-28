@@ -20,7 +20,7 @@ router.post('/register', async (req, res) => {
   // higher = harder to brute-force, but slower. 10 is the standard default
 
   try {
-    // new user - will throw if the username already exists
+    // creation of new user by .run()
     const result = db.prepare(`INSERT INTO users (username, password_hash) VALUES 
     (?, ?)`).run(username, hash);
 
@@ -55,6 +55,7 @@ router.post('/login', async(req, res) => {
 
   // credentials verified — create and return a token
   // user.id exists because this user is already in the database
+  // SELECT * FROM users WHERE username = ?
   const token = jwt.sign(
     { userId: user.id },
     process.env.JWT_SECRET,
