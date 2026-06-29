@@ -67,6 +67,8 @@ router.patch('/:id', requireAuth, (req, res) => {
   // workout.user_id is where ownership lives
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
+  // ** NOTE ** : we could do 1 query using JOIN but we did 2 for systematically thinking typeshi
+
   // ?? (nullish coalescing) — use the new value if provided, keep existing if not
   // allows the client to update just reps, just weight, or both at once
   db.prepare('UPDATE sets SET reps = ?, weight = ? WHERE id = ?')
