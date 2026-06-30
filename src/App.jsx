@@ -1,14 +1,53 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import { Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { WorkoutList } from "./pages/WorkoutList";
+import { WorkoutDetail } from "./pages/WorkoutDetail";
+import { Dashboard } from "./pages/Dashboard";
+import reactLogo from "./assets/react.svg";
+import viteLogo from "./assets/vite.svg";
+import heroImg from "./assets/hero.png";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [count, setCount] = useState(0);
 
   return (
     <>
+      <Routes>
+        {/* public routes — anyone can access these */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* protected routes — redirect to /login if not authenticated */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workouts"
+          element={
+            <ProtectedRoute>
+              <WorkoutList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workouts/:id"
+          element={
+            <ProtectedRoute>
+              <WorkoutDetail />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+
       <section id="center">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
@@ -116,7 +155,7 @@ function App() {
       <div className="ticks"></div>
       <section id="spacer"></section>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
