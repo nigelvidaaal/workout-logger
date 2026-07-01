@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/authContext";
+import { useAuth } from "../context/AuthContext";
 
-export function ProtectedRouted({ children }) {
+export function ProtectedRoute({ children }) {
   // pull token and loading from auth context
   // useAuth() is our custom hook - reads from AuthContext
   const { token, loading } = useAuth();

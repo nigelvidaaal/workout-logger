@@ -6,6 +6,7 @@ import { Register } from "./pages/Register";
 import { WorkoutList } from "./pages/WorkoutList";
 import { WorkoutDetail } from "./pages/WorkoutDetail";
 import { Dashboard } from "./pages/Dashboard";
+import { Navbar } from "./components/Navbar";
 import reactLogo from "./assets/react.svg";
 import viteLogo from "./assets/vite.svg";
 import heroImg from "./assets/hero.png";
@@ -16,37 +17,41 @@ function App() {
 
   return (
     <>
-      <Routes>
-        {/* public routes — anyone can access these */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+      {/* Navbar renders on every page regardless of route */}
+      <Navbar />
+      <main>
+        <Routes>
+          {/* public routes — anyone can access these */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* protected routes — redirect to /login if not authenticated */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/workouts"
-          element={
-            <ProtectedRoute>
-              <WorkoutList />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/workouts/:id"
-          element={
-            <ProtectedRoute>
-              <WorkoutDetail />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          {/* protected routes — redirect to /login if not authenticated */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workouts"
+            element={
+              <ProtectedRoute>
+                <WorkoutList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workouts/:id"
+            element={
+              <ProtectedRoute>
+                <WorkoutDetail />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </main>
 
       <section id="center">
         <div className="hero">
