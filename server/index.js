@@ -1,23 +1,27 @@
 require('dotenv').config()
-// now process.env.JWT_SECRET is available everywhere
-
-// express and CORS installed 
 const express = require('express')
 const cors = require('cors')
 
-// auth.js from routes
+// routers
 const authRouter = require('./routes/auth')
+const workoutsRouter = require('./routes/workouts')
+const exercisesRouter = require('./routes/exercises')
+const setsRouter = require('./routes/sets')
 
 const app = express()
 
-// allow requests from React's dev server (different port = different origin)
+// allow requests from React's dev server
 app.use(cors())
 // parse incoming JSON request bodies into req.body
 app.use(express.json())
 
-
-// *** PHASE 2 *** auth routes — public, no token needed
+// public routes — no token needed
 app.use('/api/auth', authRouter)
+
+// protected routes — requireAuth is applied inside each router
+app.use('/api/workouts', workoutsRouter)
+app.use('/api/workouts', exercisesRouter)
+app.use('/api/sets', setsRouter)
 
 app.listen(3001, () => {
   console.log('Server running on http://localhost:3001')
