@@ -6,17 +6,12 @@ import { useAuth } from "../context/AuthContext";
 export function WorkoutList() {
   // workouts — array of workout objects from the server
   const [workouts, setWorkouts] = useState([]);
-  // loading — true while fetching
   const [loading, setLoading] = useState(true);
-  // error — holds error message string or null
   const [error, setError] = useState(null);
-  // name — controlled input value for the create form
-  // single string, not an object, because there's only one field
   const [name, setName] = useState("");
   // isCreating — true while form is submitting, prevents double submissions
   const [isCreating, setIsCreating] = useState(false);
 
-  // token comes from auth context — needed in every API call
   // the server uses it to know whose workouts to fetch/create/delete
   const { token } = useAuth();
 
