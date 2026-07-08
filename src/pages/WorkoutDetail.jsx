@@ -10,6 +10,7 @@ import {
 } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
 import { ExerciseChart } from "../components/ExerciseChart";
+import styles from "../styles/WorkoutDetail.module.css";
 
 export function WorkoutDetail() {
   // workout — single object containing { id, name, date, exercises: [] }
@@ -133,58 +134,88 @@ export function WorkoutDetail() {
   if (!workout) return <div>Workout not found</div>;
 
   return (
-    <div>
-      <button onClick={() => navigate("/workouts")}>← Back</button>
+    <div className={styles.container}>
+      <button className={styles.backBtn} onClick={() => navigate("/workouts")}>
+        ← Back
+      </button>
 
-      {/* workout header */}
-      <h1>{workout.name}</h1>
-      <p>{workout.date}</p>
-      <button onClick={handleDeleteWorkout}>Delete Workout</button>
+      <div className={styles.header}>
+        <div className={styles.headerInfo}>
+          <h1>{workout.name}</h1>
+          <p>{workout.date}</p>
+        </div>
+        <button
+          className={styles.deleteWorkoutBtn}
+          onClick={handleDeleteWorkout}
+        >
+          Delete Workout
+        </button>
+      </div>
 
-      {/* add exercise form */}
-      <form onSubmit={handleAddExercise}>
+      <form onSubmit={handleAddExercise} className={styles.addExerciseForm}>
         <input
+          className={styles.input}
           value={exerciseName}
           onChange={(e) => setExerciseName(e.target.value)}
           placeholder="Exercise name (e.g. Bench Press)"
           required
         />
-        <button type="submit" disabled={!exerciseName}>
+        {/* disabled when input is empty — prevents submitting a nameless exercise */}
+        <button
+          type="submit"
+          className={styles.addBtn}
+          disabled={!exerciseName}
+        >
           Add Exercise
         </button>
       </form>
 
-      {/* exercise list — workout.exercises comes from the JOIN query on the server */}
-      {workout.exercises.length === 0 && <p>No exercises yet.</p>}
+      {workout.exercises.length === 0 && (
+        <p className={styles.emptyMessage}>No exercises yet.</p>
+      )}
 
       {workout.exercises.map((exercise) => (
-        <div key={exercise.id}>
-          <h3>{exercise.name}</h3>
-          <button onClick={() => handleDeleteExercise(exercise.id)}>
-            Delete Exercise
-          </button>
+        <div key={exercise.id} className={styles.exerciseCard}>
+          <div className={styles.exerciseHeader}>
+            <h3 className={styles.exerciseName}>{exercise.name}</h3>
+            <button
+              className={styles.deleteExerciseBtn}
+              onClick={() => handleDeleteExercise(exercise.id)}
+            >
+              Delete
+            </button>
+          </div>
 
-          {/* sets for this exercise */}
-          {exercise.sets.length === 0 && <p>No sets yet.</p>}
+          {exercise.sets.length === 0 && (
+            <p className={styles.emptyMessage}>No sets yet.</p>
+          )}
 
           {exercise.sets.map((set) => (
-            <div key={set.id}>
-              {/* set data comes from the sets table via the JOIN */}
+            <div key={set.id} className={styles.setRow}>
               <span>Set {set.set_number}</span>
               <span>{set.reps} reps</span>
+              {/* weight stored as REAL in SQLite — supports decimals like 22.5kg */}
               <span>{set.weight}kg</span>
-              <button onClick={() => handleDeleteSet(set.id)}>×</button>
+              <button
+                className={styles.deleteSetBtn}
+                onClick={() => handleDeleteSet(set.id)}
+              >
+                ×
+              </button>
             </div>
           ))}
 
-          {/* progress chart — only shows if exercise has been logged at least twice */}
+          {/* only renders when this exercise has been logged in at least 2 workouts
+              exerciseName prop is passed so the chart knows what data to fetch */}
           <ExerciseChart exerciseName={exercise.name} />
 
-          {/* add set form — clicking "Add Set" on an exercise sets exerciseId */}
+          {/* conditional set form — only one exercise can have the form open at a time
+              newSet.exerciseId tracks which exercise is currently being added to
+              when it matches THIS exercise's id, show the form — otherwise show the button */}
           {newSet.exerciseId === exercise.id ? (
-            // form is open for THIS exercise
-            <form onSubmit={handleAddSet}>
+            <form onSubmit={handleAddSet} className={styles.addSetForm}>
               <input
+                className={styles.input}
                 type="number"
                 placeholder="Reps"
                 value={newSet.reps}
@@ -192,6 +223,7 @@ export function WorkoutDetail() {
                 required
               />
               <input
+                className={styles.input}
                 type="number"
                 placeholder="Weight (kg)"
                 value={newSet.weight}
@@ -201,18 +233,22 @@ export function WorkoutDetail() {
                 required
               />
               <input
+                className={styles.input}
                 type="number"
-                placeholder="Set number"
+                placeholder="Set #"
                 value={newSet.set_number}
                 onChange={(e) =>
                   setNewSet({ ...newSet, set_number: e.target.value })
                 }
                 required
               />
-              <button type="submit">Save Set</button>
-              {/* cancel — close the form without saving */}
+              <button type="submit" className={styles.addBtn}>
+                Save
+              </button>
+              {/* type="button" prevents this from triggering the form's onSubmit */}
               <button
                 type="button"
+                className={styles.cancelBtn}
                 onClick={() =>
                   setNewSet({
                     exerciseId: null,
@@ -226,12 +262,11 @@ export function WorkoutDetail() {
               </button>
             </form>
           ) : (
-            // form is closed — show the "Add Set" button instead
-            // clicking it sets exerciseId to THIS exercise's id, opening the form
             <button
+              className={styles.addSetBtn}
               onClick={() => setNewSet({ ...newSet, exerciseId: exercise.id })}
             >
-              Add Set
+              + Add Set
             </button>
           )}
         </div>

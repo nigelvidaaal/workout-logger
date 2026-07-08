@@ -1,0 +1,195 @@
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.backBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.backBtn:hover {
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.headerInfo h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.headerInfo p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.deleteWorkoutBtn {
+  background: transparent;
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  color: var(--accent);
+  border-radius: var(--border-radius);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+
+.deleteWorkoutBtn:hover {
+  background: rgba(233, 69, 96, 0.1);
+  border-color: var(--accent);
+}
+
+.addExerciseForm {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.addBtn {
+  background: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.addBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.exerciseCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.exerciseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.exerciseName {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.deleteExerciseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+
+.deleteExerciseBtn:hover {
+  color: var(--accent);
+}
+
+.setRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.setRow:last-of-type {
+  border-bottom: none;
+}
+
+.deleteSetBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin-left: auto;
+  transition: color 0.15s;
+}
+
+.deleteSetBtn:hover {
+  color: var(--accent);
+}
+
+.addSetForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto auto;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+.addSetBtn {
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.addSetBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.emptyMessage {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}

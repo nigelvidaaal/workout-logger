@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getWorkouts, createWorkout, deleteWorkout } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
+import styles from "../styles/WorkoutList.module.css";
 
 export function WorkoutList() {
   // workouts — array of workout objects from the server
@@ -68,35 +69,57 @@ export function WorkoutList() {
   if (error) return <div>Error: {error}</div>;
 
   return (
-    <div>
-      <h1>My Workouts</h1>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <h1 className={styles.title}>My Workouts</h1>
+      </div>
 
       {/* create workout form — single input, no formData object needed */}
-      <form onSubmit={handleCreate}>
+      <form onSubmit={handleCreate} className={styles.form}>
         <input
+          className={styles.input}
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Workout name (e.g. Push Day)"
           required
         />
-        <button type="submit" disabled={isCreating || !name}>
+        <button
+          type="submit"
+          className={styles.addBtn}
+          disabled={isCreating || !name}
+        >
           {isCreating ? "Creating..." : "Add Workout"}
         </button>
       </form>
 
       {/* short circuit — show message if no workouts yet */}
-      {workouts.length === 0 && <p>No workouts yet. Add one above.</p>}
+      {workouts.length === 0 && (
+        <p className={styles.emptyMessage}>No workouts yet. Add one above.</p>
+      )}
 
-      {/* map over workouts — each one is a card with a link and delete button */}
-      {workouts.map((workout) => (
-        <div key={workout.id}>
-          {/* Link builds the URL dynamically using each workout's id */}
-          <Link to={`/workouts/${workout.id}`}>{workout.name}</Link>
-          {/* workout.date comes directly from the database column */}
-          <span>{workout.date}</span>
-          <button onClick={() => handleDelete(workout.id)}>Delete</button>
-        </div>
-      ))}
+      <div className={styles.workoutList}>
+        {/* map over workouts — each one is a card with a link and delete button */}
+        {workouts.map((workout) => (
+          <div key={workout.id} className={styles.workoutCard}>
+            <div className={styles.workoutInfo}>
+              {/* Link builds the URL dynamically using each workout's id */}
+              <Link
+                to={`/workouts/${workout.id}`}
+                className={styles.workoutName}
+              >
+                {workout.name}
+              </Link>
+              <span className={styles.workoutDate}>{workout.date}</span>
+            </div>
+            <button
+              className={styles.deleteBtn}
+              onClick={() => handleDelete(workout.id)}
+            >
+              Delete
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

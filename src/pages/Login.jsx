@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 // renamed import; lets you import something under a different local name.
 import { login as loginApi } from "../api/auth";
 import { useAuth } from "../context/AuthContext";
+import styles from "../styles/Auth.module.css";
 
 export function Login() {
   // formData — same controlled input pattern from Task Manager
@@ -44,10 +45,11 @@ export function Login() {
   }
 
   return (
-    <div>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit}>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Login</h1>
+      <form onSubmit={handleSubmit} className={styles.form}>
         <input
+          className={styles.input}
           name="username"
           value={formData.username}
           onChange={handleChange}
@@ -55,6 +57,7 @@ export function Login() {
           required
         />
         <input
+          className={styles.input}
           type="password"
           name="password"
           value={formData.password}
@@ -62,12 +65,18 @@ export function Login() {
           placeholder="Password"
           required
         />
-        {error && <p>{error}</p>}
-        <button type="submit" disabled={isSubmitting}>
+        {error && <p className={styles.error}>{error}</p>}
+        <button
+          type="submit"
+          className={styles.submitBtn}
+          disabled={isSubmitting}
+        >
           {isSubmitting ? "Logging in..." : "Login"}
         </button>
       </form>
-      <Link to="/register">Don't have an account? Register</Link>
+      <div className={styles.link}>
+        <Link to="/register">Don't have an account? Register</Link>
+      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 // register as registerApi
 import { register as registerApi } from "../api/auth";
-
+import styles from "../styles/Auth.module.css";
 // basically the same as Login.jsx, just changed some variable names
 
 export function Register() {
@@ -36,11 +36,11 @@ export function Register() {
   }
 
   return (
-    <div>
-      {/* 4. REGISTER */}
-      <h1>Register</h1>
-      <form onSubmit={handleSubmit}>
+    <div className={styles.container}>
+      <h1 className={styles.title}>Login</h1>
+      <form onSubmit={handleSubmit} className={styles.form}>
         <input
+          className={styles.input}
           name="username"
           value={formData.username}
           onChange={handleChange}
@@ -48,6 +48,7 @@ export function Register() {
           required
         />
         <input
+          className={styles.input}
           type="password"
           name="password"
           value={formData.password}
@@ -55,13 +56,18 @@ export function Register() {
           placeholder="Password"
           required
         />
-        {error && <p>{error}</p>}
-        <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Registering.." : "Register"}
+        {error && <p className={styles.error}>{error}</p>}
+        <button
+          type="submit"
+          className={styles.submitBtn}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Registering in..." : "Login"}
         </button>
       </form>
-      {/* 5.  */}
-      <Link to="/login">Already have an account? Login</Link>
+      <div className={styles.link}>
+        <Link to="/register">Don't have an account? Register</Link>
+      </div>
     </div>
   );
 }
