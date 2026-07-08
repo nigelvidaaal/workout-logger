@@ -9,6 +9,7 @@ import {
   deleteSet,
 } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
+import { ExerciseChart } from "../components/ExerciseChart";
 
 export function WorkoutDetail() {
   // workout — single object containing { id, name, date, exercises: [] }
@@ -24,9 +25,9 @@ export function WorkoutDetail() {
   // exerciseId: null means no exercise is currently selected for set addition
   const [newSet, setNewSet] = useState({
     exerciseId: null,
-    reps: "",
-    weight: "",
-    set_number: "",
+    reps: " ",
+    weight: " ",
+    set_number: " ",
   });
 
   // token comes from auth context — passed to every API call
@@ -175,6 +176,9 @@ export function WorkoutDetail() {
               <button onClick={() => handleDeleteSet(set.id)}>×</button>
             </div>
           ))}
+
+          {/* progress chart — only shows if exercise has been logged at least twice */}
+          <ExerciseChart exerciseName={exercise.name} />
 
           {/* add set form — clicking "Add Set" on an exercise sets exerciseId */}
           {newSet.exerciseId === exercise.id ? (

@@ -63,9 +63,9 @@ export async function createExercise(token, workoutId, name) {
   return response.json()
 }
 
-// DELETE /api/exercises/:id — delete an exercise
+// DELETE /api/workouts/exercises/:id — delete an exercise
 export async function deleteExercise(token, id) {
-  const response = await fetch(`${BASE_URL}/exercises/${id}`, {
+  const response = await fetch(`${BASE_URL}/workouts/exercises/${id}`, {
     method: 'DELETE',
     headers: authHeaders(token)
   })
@@ -91,4 +91,16 @@ export async function deleteSet(token, id) {
     headers: authHeaders(token)
   })
   if (!response.ok) throw new Error('Failed to delete set')
+}
+
+// GET /api/workouts/progress/:exerciseName
+// fetches max weight per session for a given exercise — used for the progress chart
+export async function getExerciseProgress(token, exerciseName) {
+  // encodeURIComponent handles spaces in exercise names — "Bench Press" → "Bench%20Press"
+  const response = await fetch(
+    `${BASE_URL}/workouts/progress/${encodeURIComponent(exerciseName)}`,
+    { headers: authHeaders(token) }
+  )
+  if (!response.ok) throw new Error('Failed to fetch progress')
+  return response.json()
 }

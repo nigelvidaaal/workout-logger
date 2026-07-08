@@ -116,6 +116,29 @@ router.get('/:id', requireAuth, (req, res) => {
   res.json({ ...workout, exercises })
 })
 
+// GET /api/workouts/progress/:exerciseName
+// returns max weight per session for a specific exercise name
+router.get('/progress/:exerciseName', requireAuth, (req, res) => {
+  // exerciseName comes from the URL — e.g. /progress/Bench%20Press
+  const { exerciseName } = req.params
+
+  // this query climbs the chain: sets → exercises → workouts
+  const rows = db.prepare(`
+    SELECT
+      workouts.date,
+      MAX(sets.weight) AS maxWeight
+    FROM sets
+    JOIN exercises ON sets.exercise_id = exercises.id
+    JOIN workouts ON exercises.workout_id = workouts.id
+    WHERE exercises.name = ?
+    AND workouts.user_id = ?
+    GROUP BY workouts.date
+    ORDER BY workouts.date ASC
+  `).all(exerciseName, req.userId)
+
+  res.json(rows)
+})
+
 router.delete('/:id', requireAuth, (req, res) => {
   const { id } = req.params
   // verify if the workout exists 

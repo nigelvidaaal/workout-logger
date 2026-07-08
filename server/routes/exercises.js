@@ -42,7 +42,7 @@ router.post('/:workoutId/exercises', requireAuth, (req, res) => {
 
 // DELETE /api/exercises/:id
 // deletes a specific exercise
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/exercises/:id', requireAuth, (req, res) => {
   const { id } = req.params
 
   // find the exercise first so we can check ownership
