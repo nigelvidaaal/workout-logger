@@ -16,6 +16,23 @@ export default defineConfig([
     }
   },
 
+  // test files — need Vitest globals (vi, test, expect, describe)
+  {
+    files: ['**/*.test.jsx', '**/*.test.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        vi: true,
+        test: true,
+        expect: true,
+        describe: true,
+        beforeEach: true,
+        afterEach: true
+      }
+    }
+  },
+
   // frontend files run in the browser
   {
     files: ['**/*.{js,jsx}'],

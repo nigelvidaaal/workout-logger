@@ -141,13 +141,18 @@ router.get('/progress/:exerciseName', requireAuth, (req, res) => {
 
 router.delete('/:id', requireAuth, (req, res) => {
   const { id } = req.params
-  // verify if the workout exists 
+
+  // verify if the workout is there
   const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(id)
   if (!workout) return res.status(404).json({ error: 'Workout not found' })
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
-  // delete and return a message that says that
-  db.prepare('DELETE FROM workouts WHERE id = ?').run(id);
+  // must delete bottom-up: sets first, then exercises, then the workout
+  // each layer has a foreign key pointing up — delete children before parents
+  db.prepare('DELETE FROM sets WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = ?)').run(id)
+  db.prepare('DELETE FROM exercises WHERE workout_id = ?').run(id)
+  db.prepare('DELETE FROM workouts WHERE id = ?').run(id)
+
   res.json({ message: 'Workout deleted' })
 })
 

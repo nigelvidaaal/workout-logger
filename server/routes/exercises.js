@@ -41,19 +41,23 @@ router.post('/:workoutId/exercises', requireAuth, (req, res) => {
 })
 
 // DELETE /api/exercises/:id
-// deletes a specific exercise
 router.delete('/exercises/:id', requireAuth, (req, res) => {
   const { id } = req.params
 
-  // find the exercise first so we can check ownership
   const exercise = db.prepare('SELECT * FROM exercises WHERE id = ?').get(id)
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
-
+  
   // exercises don't directly have user_id — we have to climb up to workouts
   // this is the chain in practice: exercises → workouts → user_id
   const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(exercise.workout_id)
+  if (!workout) return res.status(404).json({ error: 'Workout not found' })
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
+  // delete child sets first — foreign key constraint prevents deleting
+  // an exercise while sets still reference it via exercise_id
+  db.prepare('DELETE FROM sets WHERE exercise_id = ?').run(id)
+
+  // now safe to delete the exercise itself
   db.prepare('DELETE FROM exercises WHERE id = ?').run(id)
   res.json({ message: 'Exercise deleted' })
 })
