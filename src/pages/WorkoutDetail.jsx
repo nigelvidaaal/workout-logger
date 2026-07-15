@@ -260,7 +260,7 @@ export function WorkoutDetail() {
               <input
                 className={styles.input}
                 type="number"
-                placeholder="Weight (kg)"
+                placeholder="Weight (lbs)"
                 value={newSet.weight}
                 onChange={(e) =>
                   setNewSet({ ...newSet, weight: e.target.value })
