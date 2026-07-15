@@ -31,7 +31,7 @@ export default defineConfig([
         afterEach: true
       }
     }
-  },
+  },  
 
   // frontend files run in the browser
   {

@@ -41,6 +41,7 @@ export function AuthProvider({ children }) {
     // save to localStorage so session survives page refresh
     localStorage.setItem("token", newToken);
     localStorage.setItem("username", username);
+
     // save to state so React re-renders immediately
     setToken(newToken);
     setUser({ username });

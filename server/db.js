@@ -41,6 +41,28 @@ db.exec(`
     set_number INTEGER NOT NULL,
     FOREIGN KEY (exercise_id) REFERENCES exercises(id)
   );
+
+  CREATE TABLE IF NOT EXISTS prs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  exercise_name TEXT NOT NULL,
+  weight REAL NOT NULL,
+  reps INTEGER NOT NULL,
+  set_id INTEGER NOT NULL,
+  achieved_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (set_id) REFERENCES sets(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    exercise_name TEXT NOT NULL,
+    tier INTEGER NOT NULL,
+    unlocked_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE (user_id, exercise_name, tier)
+  );
 `)
 
 module.exports = db

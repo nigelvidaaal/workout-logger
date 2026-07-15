@@ -11,6 +11,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { ExerciseChart } from "../components/ExerciseChart";
 import styles from "../styles/WorkoutDetail.module.css";
+import confetti from "canvas-confetti";
 
 export function WorkoutDetail() {
   // workout — single object containing { id, name, date, exercises: [] }
@@ -21,6 +22,9 @@ export function WorkoutDetail() {
 
   // exerciseName — controlled input for adding a new exercise
   const [exerciseName, setExerciseName] = useState("");
+
+  // confetti effect when hitting a PR
+  const [celebration, setCelebration] = useState(null);
 
   // newSet — tracks which exercise we're adding a set to, plus the set values
   // exerciseId: null means no exercise is currently selected for set addition
@@ -97,13 +101,28 @@ export function WorkoutDetail() {
     try {
       // newSet.exerciseId tells the server which exercise this set belongs to
       // reps, weight, set_number are the actual set values
-      await createSet(
+      const result = await createSet(
         token,
         newSet.exerciseId,
         newSet.reps,
         newSet.weight,
         newSet.set_number,
       );
+
+      // if the set was a PR, pop celeb fx
+      if (result.isPR) {
+        confetti({
+          particleCount: 120,
+          spread: 70,
+          origin: { y: 0.6 },
+        });
+
+        // store what to celebrate so the banner renders
+        setCelebration({
+          weight: result.weight,
+          achievements: result.unlockedAchievements,
+        });
+      }
       // refetch so the new set appears under the right exercise
       await fetchWorkout();
       // reset set form but keep exerciseId so user can add another set to same exercise
@@ -135,6 +154,22 @@ export function WorkoutDetail() {
 
   return (
     <div className={styles.container}>
+      {/* PR CONFETTI FX */}
+      {celebration && (
+        <div className={styles.celebrationBanner}>
+          <h2>🎉 New PR! {celebration.weight}kg</h2>
+          {celebration.achievements.length > 0 && (
+            <div>
+              {celebration.achievements.map((a) => (
+                <p key={a.tier}>
+                  {a.icon} Achievement unlocked: {a.name}
+                </p>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setCelebration(null)}>Dismiss</button>
+        </div>
+      )}
       <button className={styles.backBtn} onClick={() => navigate("/workouts")}>
         ← Back
       </button>

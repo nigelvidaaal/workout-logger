@@ -2,47 +2,66 @@ const express = require('express')
 const router = express.Router()
 const db = require('../db')
 const requireAuth = require('../middleware/auth')
+const checkAchievements = require('../achievements')
 
 // POST (add)
 // full URL: POST /api/sets
-// adds a new set to a specific exercise
 router.post('/', requireAuth, (req, res) => {
-  // all four values are required to create a set
   const { exerciseId, reps, weight, set_number } = req.body
 
-  // validate all fields exist before touching the database
   if (!exerciseId || !reps || !weight || !set_number) {
     return res.status(400).json({ error: 'exerciseId, reps, weight and set_number are all required' })
   }
 
-  // VERIFICATION CHECK sets have no user_id, so climb: sets → exercises → workouts → user_id
-
-  // hop 1: find the exercise this set belongs to
-  // exercise_id is the foreign key on sets pointing up to exercises
+  // ownership climb (unchanged)
   const exercise = db.prepare('SELECT * FROM exercises WHERE id = ?').get(exerciseId)
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
-
-  // hop 2: find the workout that exercise belongs to
-  // workout_id is the foreign key on exercises pointing up to workouts
   const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(exercise.workout_id)
-
-  // workout.user_id is where ownership finally lives — compare to logged-in user
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
   try {
-    // insert the set — exercise_id links it to its parent exercise
+    // ── STEP 1: get the historical best BEFORE inserting ──
+    const row = db.prepare(`
+      SELECT MAX(sets.weight) AS best
+      FROM sets
+      JOIN exercises ON sets.exercise_id = exercises.id
+      JOIN workouts ON exercises.workout_id = workouts.id
+      WHERE workouts.user_id = ?
+        AND LOWER(exercises.name) = LOWER(?)
+    `).get(req.userId, exercise.name)
+
+    // if no prior sets exist, best is null — treat that as 0 so any first lift counts
+    const previousBest = row.best ?? 0;
+
+    // insert the set (your existing code) 
     const result = db.prepare(
       'INSERT INTO sets (exercise_id, reps, weight, set_number) VALUES (?, ?, ?, ?)'
     ).run(exerciseId, reps, weight, set_number)
 
-    // fetch the newly created row so we return the full object including its generated id
-    const newSet = db.prepare(
-      'SELECT * FROM sets WHERE id = ?'
-    ).get(result.lastInsertRowid)
+    const newSet = db.prepare('SELECT * FROM sets WHERE id = ?').get(result.lastInsertRowid)
 
-    // 201 = Created
-    res.status(201).json(newSet)
-  } catch {
+    // decide if it's a PR ──
+    let isPR = false
+    // achievements.js 
+    let unlockedAchievements = []
+    if (weight > previousBest) {
+      isPR = true
+
+      // record the PR event
+      db.prepare(`
+        INSERT INTO prs (user_id, exercise_name, weight, reps, set_id)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(req.userId, exercise.name, weight, reps, result.lastInsertRowid)
+      
+      // check achievements now that a PR was recorded
+      unlockedAchievements = checkAchievements(req.userId, exercise.name)
+    }
+
+    // return the set, now with a PR flag 
+    // builds a new object by first spreading every property of newSet into it
+    res.status(201).json({ ...newSet, isPR, unlockedAchievements })
+  } catch (err){
+    console.error(err)
     res.status(500).json({ error: 'Failed to create set' })
   }
 })
@@ -102,9 +121,13 @@ router.delete('/:id', requireAuth, (req, res) => {
   // ownership check
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
+  //delete any PR pointing at this set first (foreign key constraint)
+  db.prepare('DELETE FROM prs WHERE set_id = ?').run(id)
+
   // .run() for DELETE — no rows returned, just executes
   db.prepare('DELETE FROM sets WHERE id = ?').run(id)
   res.json({ message: 'Set deleted' })
 })
 
 module.exports = router
+

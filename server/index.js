@@ -7,6 +7,8 @@ const authRouter = require('./routes/auth')
 const workoutsRouter = require('./routes/workouts')
 const exercisesRouter = require('./routes/exercises')
 const setsRouter = require('./routes/sets')
+const prRouter = require('./routes/prs')
+const achievementsRouter = require('./routes/r-achievements')
 
 const app = express()
 
@@ -22,6 +24,9 @@ app.use('/api/auth', authRouter)
 app.use('/api/workouts', workoutsRouter)
 app.use('/api/workouts', exercisesRouter)
 app.use('/api/sets', setsRouter)
+// newly added ones, PRs and Achievements 
+app.use('/api/prs', prRouter)
+app.use('/api/achievements', achievementsRouter)
 
 app.listen(3001, () => {
   console.log('Server running on http://localhost:3001')

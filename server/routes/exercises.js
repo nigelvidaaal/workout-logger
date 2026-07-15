@@ -53,6 +53,14 @@ router.delete('/exercises/:id', requireAuth, (req, res) => {
   if (!workout) return res.status(404).json({ error: 'Workout not found' })
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
+  // NEW: delete PRs for all sets belonging to this exercise, BEFORE deleting the sets
+  db.prepare(`
+    DELETE FROM prs
+    WHERE set_id IN (
+      SELECT id FROM sets WHERE exercise_id = ?
+    )
+  `).run(id)
+
   // delete child sets first — foreign key constraint prevents deleting
   // an exercise while sets still reference it via exercise_id
   db.prepare('DELETE FROM sets WHERE exercise_id = ?').run(id)
