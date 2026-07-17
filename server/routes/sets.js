@@ -2,7 +2,8 @@ const express = require('express')
 const router = express.Router()
 const db = require('../db')
 const requireAuth = require('../middleware/auth')
-const checkAchievements = require('../achievements')
+// curly braces; destructuring 
+const { checkAchievements } = require('../achievements')
 
 // POST (add)
 // full URL: POST /api/sets

@@ -104,3 +104,21 @@ export async function getExerciseProgress(token, exerciseName) {
   if (!response.ok) throw new Error('Failed to fetch progress')
   return response.json()
 }
+
+// GET /api/achievements — fetch all unlocked achievements
+export async function getAchievements(token) {
+  const response = await fetch(`${BASE_URL}/achievements`, {
+    headers: authHeaders(token)
+  })
+  if (!response.ok) throw new Error('Failed to fetch achievements')
+  return response.json()
+}
+
+// GET /api/prs — fetch all PRs
+export async function getPRs(token) {
+  const response = await fetch(`${BASE_URL}/prs`, {
+    headers: authHeaders(token)
+  })
+  if (!response.ok) throw new Error('Failed to fetch PRs')
+  return response.json()
+}

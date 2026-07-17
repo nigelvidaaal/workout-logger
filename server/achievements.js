@@ -55,4 +55,5 @@ function checkAchievements(userId, exerciseName) {
   return prUnlocked
 }
 
-module.exports = checkAchievements
+// exporting tier so route files can use it too 
+module.exports = {checkAchievements, TIERS}
