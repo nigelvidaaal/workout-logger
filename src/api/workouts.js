@@ -122,3 +122,12 @@ export async function getPRs(token) {
   if (!response.ok) throw new Error('Failed to fetch PRs')
   return response.json()
 }
+
+// GET /api/achievements/tiers — fetch the tier definitions
+export async function getTiers(token) {
+  const response = await fetch(`${BASE_URL}/achievements/tiers`, {
+    headers: authHeaders(token)
+  })
+  if (!response.ok) throw new Error('Failed to fetch tiers')
+  return response.json()
+}

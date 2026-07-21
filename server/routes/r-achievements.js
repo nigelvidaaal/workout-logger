@@ -24,4 +24,10 @@ router.get('/', requireAuth, (req, res) => {
   res.json(enriched)
 })
 
+// GET /api/achievements/tiers — the tier definitions (rules), so the frontend
+// can compute "progress to next tier" without duplicating the thresholds
+router.get('/tiers', requireAuth, (req, res) => {
+  res.json(TIERS)
+})
+
 module.exports = router

@@ -1,0 +1,117 @@
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.section h2 {
+  margin-bottom: 1rem;
+}
+
+.empty {
+  color: #888;
+  font-style: italic;
+}
+
+.achievementGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.achievementCard {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #1a1a2e;
+  border-radius: 10px;
+  border: 1px solid #2a2a4a;
+}
+
+.icon {
+  font-size: 2rem;
+}
+
+.achievementName {
+  font-weight: 600;
+  margin: 0;
+}
+
+.achievementExercise {
+  font-size: 0.85rem;
+  color: #888;
+  margin: 0;
+  text-transform: capitalize;
+}
+
+.prList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.prRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1.5fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #1a1a2e;
+  border-radius: 8px;
+  align-items: center;
+}
+
+.prExercise {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.prWeight {
+  color: #e94560;
+  font-weight: 600;
+}
+
+.prDate {
+  font-size: 0.85rem;
+  color: #888;
+  text-align: right;
+}
+
+.prCard {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid #2a2a4a;
+}
+
+.prCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.prBest {
+  color: #e94560;
+  font-weight: 600;
+}
+
+.prCardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.prCount {
+  color: #aaa;
+}
+
+.prNext {
+  color: #4ade80;
+  font-weight: 500;
+}

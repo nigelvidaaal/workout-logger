@@ -157,7 +157,7 @@ export function WorkoutDetail() {
       {/* PR CONFETTI FX */}
       {celebration && (
         <div className={styles.celebrationBanner}>
-          <h2>🎉 New PR! {celebration.weight}kg</h2>
+          <h2>🎉 New PR! {celebration.weight} lbs</h2>
           {celebration.achievements.length > 0 && (
             <div>
               {celebration.achievements.map((a) => (
@@ -230,7 +230,7 @@ export function WorkoutDetail() {
               <span>Set {set.set_number}</span>
               <span>{set.reps} reps</span>
               {/* weight stored as REAL in SQLite — supports decimals like 22.5kg */}
-              <span>{set.weight}kg</span>
+              <span>{set.weight} lbs</span>
               <button
                 className={styles.deleteSetBtn}
                 onClick={() => handleDeleteSet(set.id)}
