@@ -11,6 +11,28 @@ function authHeaders(token) {
   }
 }
 
+// central handler for every API response
+// if the token is dead (401), clear the session and bounce to login
+async function handleResponse(response, errorMessage) {
+  // server rejects the token (expired or invalid)
+  if (response.status === 401) { 
+    // if passes, remove token and username
+    localStorage.removeItem("token")
+    localStorage.removeItem("username")
+
+    // redirect to login page 
+    window.location.href = '/login'
+    throw new Error("Session expired, please log in again.")
+  } 
+
+  // any other failure 
+  if (!response.ok) { 
+    throw new Error(errorMessage)
+  }
+
+  return response.json()
+}
+
 // GET /api/workouts — fetch all workouts for the logged-in user
 export async function getWorkouts(token) {
   const response = await fetch(`${BASE_URL}/workouts`, {
@@ -18,8 +40,7 @@ export async function getWorkouts(token) {
     // the server uses the token to know WHOSE workouts to return
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to fetch workouts')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch workouts')
 }
 
 // POST /api/workouts — create a new workout
@@ -30,8 +51,7 @@ export async function createWorkout(token, name) {
     // name is the only field needed — user_id comes from the token on the server
     body: JSON.stringify({ name })
   })
-  if (!response.ok) throw new Error('Failed to create workout')
-  return response.json()
+  return handleResponse(response, 'Failed to create workouts')
 }
 
 // GET /api/workouts/:id — fetch one workout with exercises and sets
@@ -39,8 +59,7 @@ export async function getWorkout(token, id) {
   const response = await fetch(`${BASE_URL}/workouts/${id}`, {
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Workout not found')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch workout')
 }
 
 // DELETE /api/workouts/:id — delete a workout
@@ -49,7 +68,7 @@ export async function deleteWorkout(token, id) {
     method: 'DELETE',
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to delete workout')
+  return handleResponse(response, 'Failed to delete workout')
 }
 
 // POST /api/workouts/:workoutId/exercises — add exercise to a workout
@@ -59,8 +78,7 @@ export async function createExercise(token, workoutId, name) {
     headers: authHeaders(token),
     body: JSON.stringify({ name })
   })
-  if (!response.ok) throw new Error('Failed to create exercise')
-  return response.json()
+  return handleResponse(response, 'Failed to create exercise')
 }
 
 // DELETE /api/workouts/exercises/:id — delete an exercise
@@ -69,7 +87,7 @@ export async function deleteExercise(token, id) {
     method: 'DELETE',
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to delete exercise')
+  return handleResponse(response, 'Failed to delete exercise')
 }
 
 // POST /api/sets — add a set to an exercise
@@ -80,8 +98,7 @@ export async function createSet(token, exerciseId, reps, weight, set_number) {
     // exerciseId goes in the body — sets are mounted at /api/sets not nested in URL
     body: JSON.stringify({ exerciseId, reps, weight, set_number })
   })
-  if (!response.ok) throw new Error('Failed to create set')
-  return response.json()
+  return handleResponse(response, 'Failed to create set')
 }
 
 // DELETE /api/sets/:id — delete a set
@@ -101,8 +118,7 @@ export async function getExerciseProgress(token, exerciseName) {
     `${BASE_URL}/workouts/progress/${encodeURIComponent(exerciseName)}`,
     { headers: authHeaders(token) }
   )
-  if (!response.ok) throw new Error('Failed to fetch progress')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch progress')
 }
 
 // GET /api/achievements — fetch all unlocked achievements
@@ -110,8 +126,7 @@ export async function getAchievements(token) {
   const response = await fetch(`${BASE_URL}/achievements`, {
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to fetch achievements')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch achievements')
 }
 
 // GET /api/prs — fetch all PRs
@@ -119,8 +134,7 @@ export async function getPRs(token) {
   const response = await fetch(`${BASE_URL}/prs`, {
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to fetch PRs')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch PRs')
 }
 
 // GET /api/achievements/tiers — fetch the tier definitions
@@ -128,6 +142,5 @@ export async function getTiers(token) {
   const response = await fetch(`${BASE_URL}/achievements/tiers`, {
     headers: authHeaders(token)
   })
-  if (!response.ok) throw new Error('Failed to fetch tiers')
-  return response.json()
+  return handleResponse(response, 'Failed to fetch tiers')
 }
