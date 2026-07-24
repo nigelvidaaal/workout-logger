@@ -149,7 +149,22 @@ router.delete('/:id', requireAuth, (req, res) => {
 
   // must delete bottom-up: sets first, then exercises, then the workout
   // each layer has a foreign key pointing up — delete children before parents
-  db.prepare('DELETE FROM sets WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = ?)').run(id)
+  db.prepare(`
+    DELETE FROM prs
+    WHERE set_id IN (
+      SELECT sets.id
+      FROM sets
+      JOIN exercises ON sets.exercise_id = exercises.id
+      WHERE exercises.workout_id = ?
+    )
+  `).run(id)
+
+  // then the existing deletes, in order
+  db.prepare(`
+    DELETE FROM sets
+    WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = ?)
+  `).run(id)
+
   db.prepare('DELETE FROM exercises WHERE workout_id = ?').run(id)
   db.prepare('DELETE FROM workouts WHERE id = ?').run(id)
 
