@@ -1,4 +1,5 @@
-const BASE_URL = '/api'
+// reads VITE_API_URL in production; falls back to '/api' for local dev (Vite proxy)
+const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // helper — builds the Authorization header from the token
 // called inside every function that hits a protected route

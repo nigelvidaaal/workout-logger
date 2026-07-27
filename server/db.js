@@ -1,6 +1,10 @@
 // database 
 const Database = require('better-sqlite3')
-const db = new Database('workouts.db')
+
+// in production, DB_PATH points at Render's persistent disk (e.g. /data/workouts.db)
+// locally it's unset, so it falls back to workouts.db in the server folder
+const dbPath = process.env.DB_PATH || 'workouts.db'
+const db = new Database(dbPath)
 
 // enables actual enforcement of FOREIGN KEY constraints and hierarchy as well
 // SQLite disables this by default — without this line constraints are ignored entirely
