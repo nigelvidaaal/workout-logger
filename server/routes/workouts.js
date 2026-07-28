@@ -1,6 +1,6 @@
 const express = require('express')
 const router = express.Router()
-const db = require('../db')
+const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
@@ -39,17 +39,18 @@ function groupExercisesWithSets(rows) {
 
 // GET all workouts for the logged-in user
 // requireAuth runs first — attaches req.userId if token is valid
-router.get('/', requireAuth, (req, res) => {
-  const workouts = db.prepare(
-    'SELECT * FROM workouts WHERE user_id = ? ORDER BY date DESC'
-  ).all(req.userId)
-  // req.userId comes from requireAuth middleware — it's the logged-in user's id
-  res.json(workouts)
+router.get('/', requireAuth, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM workouts WHERE user_id = $1 ORDER BY date DESC',
+    [req.userId]
+  )
+  // the whole array 
+  res.json(result.rows)
 })
 
 
 // POST / 
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   // destructure name from req.body 
   const { name } = req.body;
 
@@ -61,15 +62,13 @@ router.post('/', requireAuth, (req, res) => {
   // insert the workout — user_id comes from req.userId set by requireAuth
   // this is how every workout gets tied to its owner
   try {
-    const result = db.prepare(
-      'INSERT INTO workouts (user_id, name) VALUES (?, ?)'
-    ).run(req.userId, name)
-    //     ↑ user       ↑ workout name
+    const result = await pool.query(
+      'INSERT INTO workouts (user_id, name) VALUES ($1, $2) RETURNING id', 
+      [req.userId, name]
+    )// ↑ user   ↑ workout name
 
-    // after inserting, fetch the new workout and return it
-    const newWorkout = db.prepare(
-      'SELECT * FROM workouts WHERE id = ?'
-    ).get(result.lastInsertRowid)
+    // after inserting, fetch the new workout and return it (postgres format)
+    const newWorkout = result.rows[0]
 
     // return, 201 = Created
     res.status(201).json(newWorkout)
@@ -80,12 +79,13 @@ router.post('/', requireAuth, (req, res) => {
 })
 
 // GET/:id - one workout with all its exercises and sets 
-router.get('/:id', requireAuth, (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   // req.body is for POST/PATCH 
   const { id } = req.params;
 
   // verify if workout exists
-  const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(id) 
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [id])
+  const workout = workoutResult.rows[0]
   if (!workout) return res.status(404).json({ error: 'Workout not found' })
   
   // then verify if it belongs to the logged in user 
@@ -94,7 +94,7 @@ router.get('/:id', requireAuth, (req, res) => {
   // JOIN query — pulls exercises and their sets in one database call
   // LEFT JOIN ensures exercises with no sets yet are still included
   // aliases (AS exercise_id etc) prevent column name collisions between tables
-  const rows = db.prepare(`
+  const rowsResult = await pool.query(`
     SELECT
       exercises.id AS exercise_id,
       exercises.name AS exercise_name,
@@ -104,12 +104,12 @@ router.get('/:id', requireAuth, (req, res) => {
       sets.set_number
     FROM exercises
     LEFT JOIN sets ON sets.exercise_id = exercises.id
-    WHERE exercises.workout_id = ?
+    WHERE exercises.workout_id = $1
     ORDER BY exercises.id, sets.set_number
-  `).all(id)
-
-  // transform flat rows into nested exercise objects with sets arrays
-  const exercises = groupExercisesWithSets(rows)
+  `, [id])
+  
+  // passing .rows to the helper
+  const exercises = groupExercisesWithSets(rowsResult.rows)
 
   // spread workout's own properties and add exercises array
   // result shape: { id, name, date, user_id, exercises: [{ id, name, sets: [] }] }
@@ -118,55 +118,57 @@ router.get('/:id', requireAuth, (req, res) => {
 
 // GET /api/workouts/progress/:exerciseName
 // returns max weight per session for a specific exercise name
-router.get('/progress/:exerciseName', requireAuth, (req, res) => {
+router.get('/progress/:exerciseName', requireAuth, async(req, res) => {
   // exerciseName comes from the URL — e.g. /progress/Bench%20Press
   const { exerciseName } = req.params
 
   // this query climbs the chain: sets → exercises → workouts
-  const rows = db.prepare(`
+  const result = await pool.query(`
     SELECT
       workouts.date,
       MAX(sets.weight) AS maxWeight
     FROM sets
     JOIN exercises ON sets.exercise_id = exercises.id
     JOIN workouts ON exercises.workout_id = workouts.id
-    WHERE exercises.name = ?
-    AND workouts.user_id = ?
+    WHERE exercises.name = $1
+    AND workouts.user_id = $1
     GROUP BY workouts.date
     ORDER BY workouts.date ASC
-  `).all(exerciseName, req.userId)
+  `, [req.userId, exerciseName])
 
-  res.json(rows)
+  res.json(result.rows)
 })
 
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireAuth, async(req, res) => {
   const { id } = req.params
 
   // verify if the workout is there
-  const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(id)
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [id])
+  const workout = workoutResult.rows[0]
+
   if (!workout) return res.status(404).json({ error: 'Workout not found' })
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
   // must delete bottom-up: sets first, then exercises, then the workout
   // each layer has a foreign key pointing up — delete children before parents
-  db.prepare(`
+  await pool.query(`
     DELETE FROM prs
     WHERE set_id IN (
       SELECT sets.id
       FROM sets
       JOIN exercises ON sets.exercise_id = exercises.id
-      WHERE exercises.workout_id = ?
+      WHERE exercises.workout_id = $1
     )
-  `).run(id)
+  `, [id])
 
   // then the existing deletes, in order
-  db.prepare(`
+  await pool.query(`
     DELETE FROM sets
-    WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = ?)
-  `).run(id)
+    WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = $1)
+  `, [id])
 
-  db.prepare('DELETE FROM exercises WHERE workout_id = ?').run(id)
-  db.prepare('DELETE FROM workouts WHERE id = ?').run(id)
+  await pool.query('DELETE FROM exercises WHERE workout_id = $1', [id])
+  await pool.query('DELETE FROM workouts WHERE id = $1', [id])
 
   res.json({ message: 'Workout deleted' })
 })
