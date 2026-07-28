@@ -12,7 +12,7 @@ import { getExerciseProgress } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
 
 export function ExerciseChart({ exerciseName }) {
-  // data — array of { date, maxWeight } objects from the server
+  // data — array of { date, maxweight } objects from the server
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
@@ -50,10 +50,10 @@ export function ExerciseChart({ exerciseName }) {
           <YAxis tick={{ fontSize: 11 }} />
           {/* Tooltip shows exact values on hover */}
           <Tooltip />
-          {/* Line draws the actual chart line using maxWeight values */}
+          {/* Line draws the actual chart line using maxweight values */}
           <Line
             type="monotone"
-            dataKey="maxWeight"
+            dataKey="maxweight"
             stroke="#e94560"
             strokeWidth={2}
             dot={{ fill: "#e94560" }}

@@ -73,7 +73,8 @@ router.post('/', requireAuth, async (req, res) => {
     // return, 201 = Created
     res.status(201).json(newWorkout)
 
-  } catch {
+  } catch (err){
+    console.error(err)
     return res.status(500).json({ error: 'Failed to create workout'});
   }
 })
@@ -126,15 +127,16 @@ router.get('/progress/:exerciseName', requireAuth, async(req, res) => {
   const result = await pool.query(`
     SELECT
       workouts.date,
-      MAX(sets.weight) AS maxWeight
+      MAX(sets.weight) AS maxweight
     FROM sets
     JOIN exercises ON sets.exercise_id = exercises.id
     JOIN workouts ON exercises.workout_id = workouts.id
     WHERE exercises.name = $1
-    AND workouts.user_id = $1
+    AND workouts.user_id = $2
     GROUP BY workouts.date
     ORDER BY workouts.date ASC
-  `, [req.userId, exerciseName])
+  `, [ exerciseName, req.userId])
+     // needs to be in order (exercises first then userid)
 
   res.json(result.rows)
 })
