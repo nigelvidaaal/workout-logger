@@ -30,10 +30,6 @@ app.use('/api/achievements', achievementsRouter)
 
 console.log('SECRET IS:', process.env.JWT_SECRET)
 
-app.listen(3001, () => {
-  console.log('Server running on http://localhost:3001')
-})
-
 // backend CORS 
 const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:5173'
 app.use(cors({ origin: allowedOrigin }))

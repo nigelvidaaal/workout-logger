@@ -37,7 +37,7 @@ export function Register() {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Login</h1>
+      <h1 className={styles.title}>Let's Workout!</h1>
       <form onSubmit={handleSubmit} className={styles.form}>
         <input
           className={styles.input}
@@ -62,11 +62,11 @@ export function Register() {
           className={styles.submitBtn}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Registering in..." : "Login"}
+          {isSubmitting ? "Registering in..." : "Register"}
         </button>
       </form>
       <div className={styles.link}>
-        <Link to="/register">Don't have an account? Register</Link>
+        <Link to="/login">Already have an account? Login</Link>
       </div>
     </div>
   );

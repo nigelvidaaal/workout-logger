@@ -1,5 +1,5 @@
 const express = require('express');  // node_modules (installed)
-const db = require('../db');         
+const pool = require('../db-pg')       
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt')
 
@@ -21,13 +21,15 @@ router.post('/register', async (req, res) => {
 
   try {
     // creation of new user by .run()
-    const result = db.prepare(`INSERT INTO users (username, password_hash) VALUES 
-    (?, ?)`).run(username, hash);
+    const result = await pool.query(
+      `INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id`,
+      [username, hash]
+    )
 
     // create a JWT containing the new user's id as the payload
     // process.env.JWT_SECRET comes from server/.env via dotenv in index.js
     const token = jwt.sign(
-      { userId: result.lastInsertRowid },
+      { userId: result.rows[0].id },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
@@ -44,7 +46,11 @@ router.post('/login', async(req, res) => {
   const { username, password } = req.body;
 
   // find the user by username — .get() returns one object or undefined
-  const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  const result = await pool.query(
+    `SELECT * FROM users WHERE username = $1`, [username]
+  )
+
+  const user = result.rows[0];
 
   if (!user) return res.status(401).json({ error: 'Invalid credentials' })
   
