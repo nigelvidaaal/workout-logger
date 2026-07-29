@@ -1,13 +1,13 @@
 const express = require('express')
 const router = express.Router()
-const db = require('../db')
+const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 // curly braces; destructuring 
 const { checkAchievements } = require('../achievements')
 
 // POST (add)
 // full URL: POST /api/sets
-router.post('/', requireAuth, (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   const { exerciseId, reps, weight, set_number } = req.body
 
   if (!exerciseId || !reps || !weight || !set_number) {
@@ -15,31 +15,42 @@ router.post('/', requireAuth, (req, res) => {
   }
 
   // ownership climb (unchanged)
-  const exercise = db.prepare('SELECT * FROM exercises WHERE id = ?').get(exerciseId)
+  const exerciseResult = await pool.query('SELECT * FROM exercises WHERE id = $1', [exerciseId])
+  const exercise = exerciseResult.rows[0]
+
+  // if none found, output error 
   if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
-  const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(exercise.workout_id)
+  
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [exercise.workout_id])
+  const workout = workoutResult.rows[0]
+
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
   try {
     // ── STEP 1: get the historical best BEFORE inserting ──
-    const row = db.prepare(`
+    const rowResult = await pool.query(`
       SELECT MAX(sets.weight) AS best
       FROM sets
       JOIN exercises ON sets.exercise_id = exercises.id
       JOIN workouts ON exercises.workout_id = workouts.id
-      WHERE workouts.user_id = ?
-        AND LOWER(exercises.name) = LOWER(?)
-    `).get(req.userId, exercise.name)
+      WHERE workouts.user_id = $1
+        AND LOWER(exercises.name) = LOWER($2)
+    `, [req.userId, exercise.name])
 
     // if no prior sets exist, best is null — treat that as 0 so any first lift counts
-    const previousBest = row.best ?? 0;
+    const previousBest = rowResult.rows[0].best ?? 0
 
     // insert the set (your existing code) 
-    const result = db.prepare(
-      'INSERT INTO sets (exercise_id, reps, weight, set_number) VALUES (?, ?, ?, ?)'
-    ).run(exerciseId, reps, weight, set_number)
+    const result = await pool.query(
+      'INSERT INTO sets (exercise_id, reps, weight, set_number) VALUES ($1, $2, $3, $4) RETURNING id',
+      [exerciseId, reps, weight, set_number]
+    )
 
-    const newSet = db.prepare('SELECT * FROM sets WHERE id = ?').get(result.lastInsertRowid)
+    const newSetId = result.rows[0].id
+
+    // result object in the response
+    const newSetResult = await pool.query('SELECT * FROM sets WHERE id = $1', [newSetId])
+    const newSet = newSetResult.rows[0]
 
     // decide if it's a PR ──
     let isPR = false
@@ -49,13 +60,13 @@ router.post('/', requireAuth, (req, res) => {
       isPR = true
 
       // record the PR event
-      db.prepare(`
+      await pool.query(`
         INSERT INTO prs (user_id, exercise_name, weight, reps, set_id)
-        VALUES (?, ?, ?, ?, ?)
-      `).run(req.userId, exercise.name, weight, reps, result.lastInsertRowid)
+        VALUES ($1, $2, $3, $4, $5)
+      `, [req.userId, exercise.name, weight, reps, newSetId] )
       
       // check achievements now that a PR was recorded
-      unlockedAchievements = checkAchievements(req.userId, exercise.name)
+      unlockedAchievements = await checkAchievements(req.userId, exercise.name)
     }
 
     // return the set, now with a PR flag 
@@ -69,21 +80,26 @@ router.post('/', requireAuth, (req, res) => {
 
 // PATCH (update)
 // full URL: PATCH /api/sets/:id
-router.patch('/:id', requireAuth, (req, res) => {
+router.patch('/:id', requireAuth, async (req, res) => {
   // id — which set to update (from URL)
   const { id } = req.params
   // reps and weight — the new values (from request body)
   const { reps, weight } = req.body
 
   // find the set — 404 if it doesn't exist
-  const set = db.prepare('SELECT * FROM sets WHERE id = ?').get(id)
+  const setResult = await pool.query('SELECT * FROM sets WHERE id = $1', [id])
+  const set = setResult.rows[0]
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
   // OWNERSHIP CHECK — two hops up the chain
   // hop 1: set.exercise_id points up to exercises
-  const exercise = db.prepare('SELECT * FROM exercises WHERE id = ?').get(set.exercise_id)
+  const exerciseResult = await pool.query('SELECT * FROM exercises WHERE id = $1', [set.exercise_id])
+  const exercise = exerciseResult.rows[0]
+
   // hop 2: exercise.workout_id points up to workouts
-  const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(exercise.workout_id)
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [exercise.workout_id])
+  const workout = workoutResult.rows[0]
+  
   // workout.user_id is where ownership lives
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
@@ -91,42 +107,52 @@ router.patch('/:id', requireAuth, (req, res) => {
 
   // ?? (nullish coalescing) — use the new value if provided, keep existing if not
   // allows the client to update just reps, just weight, or both at once
-  db.prepare('UPDATE sets SET reps = ?, weight = ? WHERE id = ?')
-    .run(
+  await pool.query('UPDATE sets SET reps = $1, weight = $2 WHERE id = $3', 
+    [
       reps ?? set.reps,       // new reps if sent, otherwise keep current reps
       weight ?? set.weight,   // new weight if sent, otherwise keep current weight
       id
-    )
+    ]
+  )
+    
 
   // fetch and return the updated set so React has the latest values
-  const updatedSet = db.prepare('SELECT * FROM sets WHERE id = ?').get(id)
+  const updatedSetResult = await pool.query('SELECT * FROM sets WHERE id = $1',[id])
+  const updatedSet = updatedSetResult.rows[0]
+
   res.json(updatedSet)
 })
 
 // DELETE /:id
 // full URL: DELETE /api/sets/:id
 // deletes a specific set by id
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   // id — which set to delete (from URL)
   const { id } = req.params
 
   // find the set first so we can climb the chain
-  const set = db.prepare('SELECT * FROM sets WHERE id = ?').get(id)
+  const setResult = await pool.query('SELECT * FROM sets WHERE id = $1', [id])
+  const set = setResult.rows[0]
+
   if (!set) return res.status(404).json({ error: 'Set not found' })
 
   // OWNERSHIP CHECK — two hops up the chain
   // hop 1: set.exercise_id points up to exercises
-  const exercise = db.prepare('SELECT * FROM exercises WHERE id = ?').get(set.exercise_id)
+  const exerciseResult = await pool.query('SELECT * FROM exercises WHERE id = $1', [set.exercise_id])
+  const exercise = exerciseResult.rows[0]
+
   // hop 2: exercise.workout_id points up to workouts
-  const workout = db.prepare('SELECT * FROM workouts WHERE id = ?').get(exercise.workout_id)
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [exercise.workout_id])
+  const workout = workoutResult.rows[0]
+
   // ownership check
   if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
 
   //delete any PR pointing at this set first (foreign key constraint)
-  db.prepare('DELETE FROM prs WHERE set_id = ?').run(id)
+  await pool.query('DELETE FROM prs WHERE set_id = $1', [id])
 
-  // .run() for DELETE — no rows returned, just executes
-  db.prepare('DELETE FROM sets WHERE id = ?').run(id)
+  // for DELETE — no rows returned, just executes
+  await pool.query('DELETE FROM sets WHERE id = $1', [id])
   res.json({ message: 'Set deleted' })
 })
 

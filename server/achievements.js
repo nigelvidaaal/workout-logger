@@ -47,7 +47,7 @@ async function checkAchievements(userId, exerciseName) {
 
         // push out the pr to process
         prUnlocked.push(t)
-      }
+      } 
     }
   }
 
