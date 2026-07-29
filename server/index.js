@@ -28,7 +28,6 @@ app.use('/api/sets', setsRouter)
 app.use('/api/prs', prRouter)
 app.use('/api/achievements', achievementsRouter)
 
-console.log('SECRET IS:', process.env.JWT_SECRET)
 
 // backend CORS 
 const allowedOrigin = process.env.CLIENT_URL || 'http://localhost:5173'
