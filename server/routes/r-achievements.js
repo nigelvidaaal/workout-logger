@@ -1,14 +1,17 @@
 const express = require('express')
 const router = express.Router()
-const db = require('../db')
+const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 const { TIERS } = require('../achievements')
 
 // GET /api/achievements - for user's achievements basically 
-router.get('/', requireAuth, (req, res) => {
-  const achievements = db.prepare(
-    'SELECT * FROM achievements WHERE user_id = ? ORDER BY unlocked_at DESC'
-  ).all(req.userId)
+router.get('/', requireAuth, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM achievements WHERE user_id = $1 ORDER BY unlocked_at DESC', 
+    [req.userId]
+  )
+
+  const achievements = result.rows
 
   // attach name + icon to each row by looking up its tier in TIERS
   const enriched = achievements.map((a) => {
