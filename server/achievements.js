@@ -1,4 +1,4 @@
-const db = require('./db')
+const pool = require('./db-pg')
 
 // FIXED CONSTANT
 const TIERS = [
@@ -9,19 +9,17 @@ const TIERS = [
 ]
 
 // checks PR count for one exercise and unlocks any newly-earned tiers.
-// returns an array of the tiers unlocked DURING THIS CALL (usually 0 or 1),
-// so the caller can tell the frontend what to celebrate.
-function checkAchievements(userId, exerciseName) {
+async function checkAchievements(userId, exerciseName) {
 
   // count this user's PRs for this exercise
-  const row = db.prepare(`
+  const result = await pool.query(`
     SELECT COUNT(*) AS count
     FROM prs
-    WHERE user_id = ?
-      AND LOWER(exercise_name) = LOWER(?)
-  `).get(userId, exerciseName)
+    WHERE user_id = $1
+      AND LOWER(exercise_name) = LOWER($2)
+  `, [userId, exerciseName])
 
-  const prCount = row.count
+  const prCount = parseInt(result.rows[0].count, 10)
 
   // array of pr, will display if a new PR is unlocked
   const prUnlocked = []
@@ -33,17 +31,19 @@ function checkAchievements(userId, exerciseName) {
     if (prCount >= t.threshold) {
 
       // CODE GUARD: is this tier already unlocked? (idempotency)
-      const existing = db.prepare(`
+      const existingResult = await pool.query(`
         SELECT * FROM achievements
-        WHERE user_id = ? AND LOWER(exercise_name) = LOWER(?) AND tier = ?
-      `).get(userId, exerciseName, t.tier)
+        WHERE user_id = $1 AND LOWER(exercise_name) = LOWER($2) AND tier = $3
+      `, [userId, exerciseName, t.tier])
 
+      const existing = existingResult.rows[0]
+      
       // only insert if it does NOT already exist
       if (!existing) {
-        db.prepare(`
+        await pool.query(`
           INSERT INTO achievements (user_id, exercise_name, tier)
-          VALUES (?, ?, ?)
-        `).run(userId, exerciseName, t.tier)
+          VALUES ($1, $2, $3)
+        `,[userId, exerciseName, t.tier])
 
         // push out the pr to process
         prUnlocked.push(t)
