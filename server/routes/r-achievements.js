@@ -6,11 +6,13 @@ const { TIERS } = require('../achievements')
 
 // GET /api/achievements - for user's achievements basically 
 router.get('/', requireAuth, async (req, res) => {
+  
   const result = await pool.query(
     'SELECT * FROM achievements WHERE user_id = $1 ORDER BY unlocked_at DESC', 
     [req.userId]
   )
 
+  // getting all, meaning ROWS not just rows[0]
   const achievements = result.rows
 
   // attach name + icon to each row by looking up its tier in TIERS
