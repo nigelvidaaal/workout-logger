@@ -242,7 +242,7 @@ export function WorkoutDetail() {
 
           {/* only renders when this exercise has been logged in at least 2 workouts
               exerciseName prop is passed so the chart knows what data to fetch */}
-          <ExerciseChart exerciseName={exercise.name} />
+          {/*<ExerciseChart exerciseName={exercise.name} > */}
 
           {/* conditional set form — only one exercise can have the form open at a time
               newSet.exerciseId tracks which exercise is currently being added to
