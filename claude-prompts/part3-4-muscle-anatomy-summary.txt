@@ -1,0 +1,2147 @@
+====================================================================
+WORKOUT LOGGER — SESSION SUMMARY
+Part 3 (muscle-group data model) + Part 4 (anatomy chart)
+====================================================================
+
+------------------------------------------------------------------
+1. PROJECT CONTEXT — THE FULL ROADMAP
+------------------------------------------------------------------
+This app improvement was split into 5 self-contained learning parts:
+
+  Part 1 — New UI + mobile polish (dark cards, no glass, mobile-first)
+  Part 2 — PR achievement improvements (clickable PRs, logos, refined
+           tiers, per-exercise PR handling, "New PR on X" text)
+  Part 3 — Workout renaming + muscle-group data model (foundation)
+  Part 4 — The muscle anatomy chart (the showcase feature)
+  Part 5 — Daily reset + analytics (progressive overload trends)
+
+THIS SESSION BUILT PART 3 AND PART 4 ONLY. Parts 1, 2, and 5 have
+NOT been started. See section 6 for the full rundown of what's left.
+
+------------------------------------------------------------------
+2. DECISIONS CONFIRMED THIS SESSION (asked directly, answered by you)
+------------------------------------------------------------------
+1. SVG artwork: hand-built simple shapes (rects/ellipses), not an
+   externally sourced anatomy SVG.
+2. Granularity: 10 major muscle groups — chest, back, shoulders,
+   biceps, triceps, abs, quads, hamstrings, glutes, calves.
+3. Tagging: manual dropdown when adding an exercise. No external
+   exercise database, no fuzzy name-matching.
+4. Body view: front + back toggle (you chose this over front-only).
+5. Coloring: single accent hue (#e94560, the app's existing --accent
+   variable) with intensity/opacity scaled by relative training
+   volume — NOT a different color per muscle group.
+
+You also asked about sourcing exercise-to-muscle data from an open
+GitHub dataset (e.g. free-exercise-db). We did NOT go that route —
+tagging is fully manual via dropdown (decision #3 above). That
+remains an option later if you want auto-suggestion instead of
+always picking manually.
+
+You also clarified Part 5's "daily reset": it is NOT a delete-based
+reset. Each workout already has a `date` column — Monday's workout
+and Wednesday's workout both stay in the database as their own
+dated rows. "Analytics" means querying/comparing across those dated
+rows (e.g. total volume Monday vs Wednesday), not wiping and
+rebuilding data daily. Nothing was built for this yet — it's queued
+for Part 5.
+
+------------------------------------------------------------------
+3. CORRECTIONS FOUND DURING INVESTIGATION
+------------------------------------------------------------------
+These are things that turned out different from the original
+assumption once the actual code was read — important to know so you
+don't get confused later.
+
+CORRECTION 1 — There is only ONE live database, not two.
+  Original assumption: server/db.js (SQLite/better-sqlite3) = local
+  dev database, server/db-pg.js (Postgres/Neon) = production
+  database — a typical dev/prod split.
+  Actual reality: server/index.js and EVERY route file
+  (auth.js, workouts.js, exercises.js, sets.js, prs.js,
+  r-achievements.js) require server/db-pg.js only. server/db.js is
+  never required by the running server at all. The only two files
+  that touch db.js are server/check-ach.js and server/checkpr.js —
+  standalone debug scripts not wired into index.js.
+  Practical effect: your local dev server and your production
+  deployment both talk to the SAME Neon Postgres database (via
+  DATABASE_URL in server/.env). There is no separate local SQLite
+  database actually in use. server/db.js was still updated for
+  consistency/hygiene, but it is not on the critical path.
+
+CORRECTION 2 — Express route-ordering hazard.
+  server/routes/workouts.js already had `router.get('/:id', ...)`
+  registered BEFORE `router.get('/progress/:exerciseName', ...)`.
+  This was only safe because "/progress/xxx" has two path segments,
+  so Express's `/:id` pattern (one segment) doesn't match it.
+  A new single-segment route like "/muscle-volume" WOULD have
+  collided with `/:id` if placed after it — Express would treat the
+  literal string "muscle-volume" as the id parameter and run
+  `SELECT * FROM workouts WHERE id = 'muscle-volume'`, which is a
+  broken/meaningless query, not a 404.
+  Fix applied: the new `/muscle-volume` route is registered BEFORE
+  `/:id` in workouts.js. Confirmed by directly reading the file.
+
+CORRECTION 3 (minor, not fixed, just flagged) — checkpr.js is
+  misleadingly named. Despite the name, its contents are byte-for-
+  byte identical to check-ach.js: it just logs the achievements
+  table from the (unused) db.js. It does NOT contain PR-checking
+  logic — real PR logic lives in server/routes/sets.js. This is
+  pre-existing tech debt, left untouched, just documented here so
+  you're not misled by the filename later.
+
+------------------------------------------------------------------
+4. WHAT WAS BUILT — FILE BY FILE, WITH EXPLANATIONS AND FULL CODE
+------------------------------------------------------------------
+
+=== BACKEND ===
+
+--------------------------------------------------------------
+FILE: server/setup-db.js  (EDITED — the schema that actually matters)
+--------------------------------------------------------------
+WHY: This is the one-time script that creates tables in the live
+Neon Postgres database. Since `CREATE TABLE IF NOT EXISTS` does
+nothing to an already-existing table, a plain column addition to
+the CREATE statement would NOT have patched the live table. The
+`ALTER TABLE ... ADD COLUMN IF NOT EXISTS` line is what actually
+does the work, and it's safe to leave permanently — reruns are
+no-ops once the column exists.
+ACTION STILL NEEDED FROM YOU: run `node setup-db.js` from the
+`server/` folder to apply this to your live database. This was
+deliberately NOT run automatically — it mutates your production
+database, and that's your call to make, not an automatic step.
+
+Column design: plain `TEXT`, nullable, no database-level CHECK
+constraint. The 10-value whitelist is enforced at the application
+layer (in the route handler) instead, because there's a single
+write path (your own API) and a single user — a lookup table or DB
+constraint would be over-engineering for this. Nullable so existing
+untagged exercises aren't given a fabricated value.
+
+FULL FILE:
+```javascript
+// one-time script: creates all tables in the Neon Postgres database
+// run with: node setup-db.js
+require('dotenv').config()
+const pool = require('./db-pg');
+
+async function setup() {
+  // Postgres runs multiple statements in one query() call
+  await pool.query(`
+   CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS workouts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      date TIMESTAMP DEFAULT NOW(),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS exercises (
+      id SERIAL PRIMARY KEY,
+      workout_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      muscle_group TEXT,
+      FOREIGN KEY (workout_id) REFERENCES workouts(id)
+    );
+
+    -- CREATE TABLE IF NOT EXISTS is a no-op against the already-existing prod table,
+    -- so this ALTER is what actually adds the column there. Safe to rerun.
+    ALTER TABLE exercises ADD COLUMN IF NOT EXISTS muscle_group TEXT;
+
+    CREATE TABLE IF NOT EXISTS sets (
+      id SERIAL PRIMARY KEY,
+      exercise_id INTEGER NOT NULL,
+      reps INTEGER NOT NULL,
+      weight REAL NOT NULL,
+      set_number INTEGER NOT NULL,
+      FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS prs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      exercise_name TEXT NOT NULL,
+      weight REAL NOT NULL,
+      reps INTEGER NOT NULL,
+      set_id INTEGER NOT NULL,
+      achieved_at TIMESTAMP DEFAULT NOW(),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (set_id) REFERENCES sets(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS achievements (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      exercise_name TEXT NOT NULL,
+      tier INTEGER NOT NULL,
+      unlocked_at TIMESTAMP DEFAULT NOW(),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      UNIQUE (user_id, exercise_name, tier)
+    );
+  `)
+
+  console.log(' Tables created succesfully')
+  await pool.end()            // close the pool so the script exits cleanly
+}
+
+setup().catch((err) => {
+  console.error('Setup failed: ', err)
+  pool.end()
+})
+```
+
+--------------------------------------------------------------
+FILE: server/db.js  (EDITED — low priority, NOT used by the live server)
+--------------------------------------------------------------
+WHY: Mirrored the same muscle_group column here purely so this file
+doesn't drift further out of sync with reality. A comment was added
+explaining it's dead code for the running app (see Correction 1
+above) — only the standalone debug scripts touch it.
+
+FULL FILE:
+```javascript
+// database
+const Database = require('better-sqlite3')
+
+// in production, DB_PATH points at Render's persistent disk (e.g. /data/workouts.db)
+// locally it's unset, so it falls back to workouts.db in the server folder
+const dbPath = process.env.DB_PATH || 'workouts.db'
+const db = new Database(dbPath)
+
+// enables actual enforcement of FOREIGN KEY constraints and hierarchy as well
+// SQLite disables this by default — without this line constraints are ignored entirely
+db.pragma('foreign_keys = ON')
+
+// The hierarchy only moves in one direction per query
+// you start somewhere and only climb upward toward the owner. You never go down to a
+// child just to come back up
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS workouts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    date TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+
+  -- NOTE: this file (better-sqlite3) is not required by index.js or any route —
+  -- the running server uses db-pg.js (Postgres) exclusively. Kept in sync here
+  -- only for the standalone debug scripts (check-ach.js, checkpr.js) that still use it.
+  CREATE TABLE IF NOT EXISTS exercises (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    muscle_group TEXT,
+    FOREIGN KEY (workout_id) REFERENCES workouts(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS sets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    exercise_id INTEGER NOT NULL,
+    reps INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    set_number INTEGER NOT NULL,
+    FOREIGN KEY (exercise_id) REFERENCES exercises(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS prs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  exercise_name TEXT NOT NULL,
+  weight REAL NOT NULL,
+  reps INTEGER NOT NULL,
+  set_id INTEGER NOT NULL,
+  achieved_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (set_id) REFERENCES sets(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS achievements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    exercise_name TEXT NOT NULL,
+    tier INTEGER NOT NULL,
+    unlocked_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    UNIQUE (user_id, exercise_name, tier)
+  );
+`)
+
+module.exports = db
+```
+
+--------------------------------------------------------------
+FILE: server/constants/muscleGroups.js  (NEW)
+--------------------------------------------------------------
+WHY: Single source of truth for backend validation — the exact 10
+values that are allowed in the muscle_group column.
+
+FULL FILE:
+```javascript
+// the fixed set of muscle-group tags exercises can be assigned.
+// single source of truth for backend validation — the frontend keeps its own
+// copy (src/constants/muscleGroups.js) since this list is frozen, not tunable data.
+const MUSCLE_GROUPS = [
+  'chest',
+  'back',
+  'shoulders',
+  'biceps',
+  'triceps',
+  'abs',
+  'quads',
+  'hamstrings',
+  'glutes',
+  'calves',
+]
+
+module.exports = { MUSCLE_GROUPS }
+```
+
+--------------------------------------------------------------
+FILE: server/routes/exercises.js  (EDITED)
+--------------------------------------------------------------
+WHY: The POST endpoint that creates an exercise now requires and
+validates `muscle_group` against the whitelist (400 error if
+missing or not one of the 10 values), stores it, and returns it in
+the response.
+
+FULL FILE:
+```javascript
+const express = require('express')
+const router = express.Router()
+const pool = require('../db-pg')
+const requireAuth = require('../middleware/auth')
+const { MUSCLE_GROUPS } = require('../constants/muscleGroups')
+
+// POST /api/workouts/:workoutId/exercises
+// adds a new exercise to a specific workout
+// notice the route is just '/:workoutId/exercises' here because in index.js
+// this router will be mounted at '/api/workouts' — so the full path combines
+router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
+
+  // workoutId - workout added to, name - exercise name, muscle_group - tag used by the anatomy chart
+  const { workoutId } = req.params
+  const { name, muscle_group } = req.body
+
+  if (!name) return res.status(400).json({ error: 'All fields required' })
+  if (!muscle_group || !MUSCLE_GROUPS.includes(muscle_group)) {
+    return res.status(400).json({ error: 'Invalid muscle_group' })
+  }
+
+  // verify the workout exists AND belongs to this user before adding to it
+  // this is the authorization check — you can't add exercises to someone else's workout
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [workoutId])
+  const workout = workoutResult.rows[0]
+
+  if (!workout) return res.status(404).json({ error: 'Workout not found' })
+  if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
+
+  try {
+    // insert the exercise
+    // foreign key in action: exercises.workout_id = workouts.id
+    const result = await pool.query(
+      'INSERT INTO exercises (workout_id, name, muscle_group) VALUES ($1, $2, $3) RETURNING id, name, muscle_group',
+      [workoutId, name, muscle_group]
+    )
+
+    // fetch and return the newly created exercise
+    const newExercise = result.rows[0]
+
+    // return
+    res.status(201).json(newExercise)
+  } catch {
+    res.status(500).json({ error: 'Failed to create exercise' })
+  }
+})
+
+// DELETE /api/exercises/:id
+router.delete('/exercises/:id', requireAuth, async (req, res) => {
+  const { id } = req.params
+
+  // verify if the exercise exists
+  const exerciseResult = await pool.query('SELECT * FROM exercises WHERE id = $1', [id])
+  const exercise = exerciseResult.rows[0]
+  if (!exercise) return res.status(404).json({ error: 'Exercise not found' })
+
+  // exercises don't directly have user_id — we have to climb up to workouts
+  // this is the chain in practice: exercises → workouts → user_id
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [exercise.workout_id])
+  const workout = workoutResult.rows[0]
+  if (!workout) return res.status(404).json({ error: 'Workout not found' })
+  if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
+
+  // delete PRs for all sets belonging to this exercise, BEFORE deleting the sets
+  await pool.query(`
+    DELETE FROM prs
+    WHERE set_id IN (
+      SELECT id FROM sets WHERE exercise_id = $1
+    )
+  `, [id])
+
+  // delete child sets first — foreign key constraint prevents deleting
+  // an exercise while sets still reference it via exercise_id
+  await pool.query('DELETE FROM sets WHERE exercise_id = $1', [id])
+
+  // now safe to delete the exercise itself
+  await pool.query('DELETE FROM exercises WHERE id = $1', [id])
+  res.json({ message: 'Exercise deleted' })
+})
+
+module.exports = router
+```
+
+--------------------------------------------------------------
+FILE: server/routes/workouts.js  (EDITED)
+--------------------------------------------------------------
+WHY: Two changes —
+  (a) The GET /:id JOIN query now also selects exercises.muscle_group
+      so WorkoutDetail.jsx can display each exercise's tag.
+  (b) A new GET /muscle-volume route computes total tonnage
+      (reps x weight, summed) per muscle group across ALL of the
+      user's workouts. This is the exact query the anatomy chart
+      consumes. Registered BEFORE /:id — see Correction 2 above for
+      why this ordering matters.
+
+FULL FILE:
+```javascript
+const express = require('express')
+const router = express.Router()
+const pool = require('../db-pg')
+const requireAuth = require('../middleware/auth')
+
+// helper — transforms flat JOIN rows into nested exercise objects with sets arrays
+function groupExercisesWithSets(rows) {
+
+  // reduce() transforms an array into a single accumulated value
+  // here we're accumulating an object where each key is an exercise id
+  const map = rows.reduce((acc, row) => {
+
+    // if we haven't seen this exercise id before, make one
+    if (!acc[row.exercise_id]) {
+      acc[row.exercise_id] = {
+        id: row.exercise_id,
+        name: row.exercise_name,
+        muscle_group: row.muscle_group,
+        sets: []
+      }
+    }
+
+
+    // if this row has a set (LEFT JOIN means set columns could be null)
+    // push the set into this exercise's sets array
+    if (row.set_id) {
+      acc[row.exercise_id].sets.push({
+        id: row.set_id,
+        reps: row.reps,
+        weight: row.weight,
+        set_number: row.set_number
+      })
+    }
+    return acc
+  }, {})
+
+  // convert the object of exercises into an array
+  return Object.values(map)
+}
+
+// GET all workouts for the logged-in user
+// requireAuth runs first — attaches req.userId if token is valid
+router.get('/', requireAuth, async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM workouts WHERE user_id = $1 ORDER BY date DESC',
+    [req.userId]
+  )
+  // the whole array
+  res.json(result.rows)
+})
+
+
+// POST /
+router.post('/', requireAuth, async (req, res) => {
+  // destructure name from req.body
+  const { name } = req.body;
+
+  // validate if name exists
+  if (!name) {
+    return res.status(401).json({ error: 'Name not found!' });
+  }
+
+  // insert the workout — user_id comes from req.userId set by requireAuth
+  // this is how every workout gets tied to its owner
+  try {
+    const result = await pool.query(
+      'INSERT INTO workouts (user_id, name) VALUES ($1, $2) RETURNING id',
+      [req.userId, name]
+    )// ↑ user   ↑ workout name
+
+    // after inserting, fetch the new workout and return it (postgres format)
+    const newWorkout = result.rows[0]
+
+    // return, 201 = Created
+    res.status(201).json(newWorkout)
+
+  } catch (err){
+    console.error(err)
+    return res.status(500).json({ error: 'Failed to create workout'});
+  }
+})
+
+// GET /api/workouts/muscle-volume
+// total tonnage (reps x weight) per muscle group, across ALL of the user's workouts.
+// registered BEFORE /:id — a single-segment path here would otherwise be
+// swallowed by the /:id route above and treated as an (invalid) workout id
+router.get('/muscle-volume', requireAuth, async (req, res) => {
+  const result = await pool.query(`
+    SELECT exercises.muscle_group, SUM(sets.reps * sets.weight) AS tonnage
+    FROM sets
+    JOIN exercises ON sets.exercise_id = exercises.id
+    JOIN workouts ON exercises.workout_id = workouts.id
+    WHERE workouts.user_id = $1 AND exercises.muscle_group IS NOT NULL
+    GROUP BY exercises.muscle_group
+  `, [req.userId])
+
+  res.json(result.rows)
+})
+
+// GET/:id - one workout with all its exercises and sets
+router.get('/:id', requireAuth, async (req, res) => {
+  // req.body is for POST/PATCH
+  const { id } = req.params;
+
+  // verify if workout exists
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [id])
+  const workout = workoutResult.rows[0]
+  if (!workout) return res.status(404).json({ error: 'Workout not found' })
+
+  // then verify if it belongs to the logged in user
+  if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
+
+  // JOIN query — pulls exercises and their sets in one database call
+  // LEFT JOIN ensures exercises with no sets yet are still included
+  // aliases (AS exercise_id etc) prevent column name collisions between tables
+  const rowsResult = await pool.query(`
+    SELECT
+      exercises.id AS exercise_id,
+      exercises.name AS exercise_name,
+      exercises.muscle_group,
+      sets.id AS set_id,
+      sets.reps,
+      sets.weight,
+      sets.set_number
+    FROM exercises
+    LEFT JOIN sets ON sets.exercise_id = exercises.id
+    WHERE exercises.workout_id = $1
+    ORDER BY exercises.id, sets.set_number
+  `, [id])
+
+  // passing .rows to the helper
+  const exercises = groupExercisesWithSets(rowsResult.rows)
+
+  // spread workout's own properties and add exercises array
+  // result shape: { id, name, date, user_id, exercises: [{ id, name, sets: [] }] }
+  res.json({ ...workout, exercises })
+})
+
+// GET /api/workouts/progress/:exerciseName
+// returns max weight per session for a specific exercise name
+router.get('/progress/:exerciseName', requireAuth, async(req, res) => {
+  // exerciseName comes from the URL — e.g. /progress/Bench%20Press
+  const { exerciseName } = req.params
+
+  // this query climbs the chain: sets → exercises → workouts
+  const result = await pool.query(`
+    SELECT
+      workouts.date,
+      MAX(sets.weight) AS maxweight
+    FROM sets
+    JOIN exercises ON sets.exercise_id = exercises.id
+    JOIN workouts ON exercises.workout_id = workouts.id
+    WHERE exercises.name = $1
+    AND workouts.user_id = $2
+    GROUP BY workouts.date
+    ORDER BY workouts.date ASC
+  `, [ exerciseName, req.userId])
+     // needs to be in order (exercises first then userid)
+
+  res.json(result.rows)
+})
+
+router.delete('/:id', requireAuth, async(req, res) => {
+  const { id } = req.params
+
+  // verify if the workout is there
+  const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [id])
+  const workout = workoutResult.rows[0]
+
+  if (!workout) return res.status(404).json({ error: 'Workout not found' })
+  if (workout.user_id !== req.userId) return res.status(403).json({ error: 'Forbidden' })
+
+  // must delete bottom-up: sets first, then exercises, then the workout
+  // each layer has a foreign key pointing up — delete children before parents
+  await pool.query(`
+    DELETE FROM prs
+    WHERE set_id IN (
+      SELECT sets.id
+      FROM sets
+      JOIN exercises ON sets.exercise_id = exercises.id
+      WHERE exercises.workout_id = $1
+    )
+  `, [id])
+
+  // then the existing deletes, in order
+  await pool.query(`
+    DELETE FROM sets
+    WHERE exercise_id IN (SELECT id FROM exercises WHERE workout_id = $1)
+  `, [id])
+
+  await pool.query('DELETE FROM exercises WHERE workout_id = $1', [id])
+  await pool.query('DELETE FROM workouts WHERE id = $1', [id])
+
+  res.json({ message: 'Workout deleted' })
+})
+
+module.exports = router
+```
+
+=== FRONTEND ===
+
+--------------------------------------------------------------
+FILE: src/constants/muscleGroups.js  (NEW)
+--------------------------------------------------------------
+WHY: Frontend mirror of the backend's whitelist, as {value, label}
+pairs for the dropdown and legend. This IS a deliberate duplication
+— see risk item C in section 5 for the tradeoff.
+
+FULL FILE:
+```javascript
+// mirrors server/constants/muscleGroups.js — duplicated deliberately since this
+// list is a frozen set of anatomical regions, not data that changes, so it's not
+// worth an extra fetch/loading state to keep it "single sourced" over the network.
+export const MUSCLE_GROUPS = [
+  { value: 'chest', label: 'Chest' },
+  { value: 'back', label: 'Back' },
+  { value: 'shoulders', label: 'Shoulders' },
+  { value: 'biceps', label: 'Biceps' },
+  { value: 'triceps', label: 'Triceps' },
+  { value: 'abs', label: 'Abs' },
+  { value: 'quads', label: 'Quads' },
+  { value: 'hamstrings', label: 'Hamstrings' },
+  { value: 'glutes', label: 'Glutes' },
+  { value: 'calves', label: 'Calves' },
+]
+```
+
+--------------------------------------------------------------
+FILE: src/utils/muscleFill.js  (NEW)
+--------------------------------------------------------------
+WHY: The color-intensity formula, extracted into its own file so
+both MuscleBodyChart.jsx (the SVG regions) and MuscleChart.jsx (the
+legend swatches) always agree on what a given intensity looks like.
+(This was also required to satisfy an ESLint "fast refresh" rule
+that disallows a component file from also exporting a plain
+function — see risk item L in section 5.)
+
+FULL FILE:
+```javascript
+// fill is computed here (not a CSS class) because alpha is a continuous
+// value driven by data — a static class can't express "0.37 trained" vs "0.82 trained".
+// shared by MuscleBodyChart (the SVG regions) and MuscleChart (the legend swatches)
+// so both always agree on what a given intensity looks like.
+export function getFill(group, intensityByGroup) {
+  const intensity = intensityByGroup?.[group] ?? 0;
+  if (!intensity) return "var(--border)";
+  const alpha = 0.15 + intensity * 0.85;
+  return `rgba(233, 69, 96, ${alpha})`;
+}
+```
+
+--------------------------------------------------------------
+FILE: src/api/workouts.js  (EDITED)
+--------------------------------------------------------------
+WHY: `createExercise` now takes and sends a 4th argument,
+`muscleGroup` (sent to the server as `muscle_group`). A new
+`getMuscleVolume(token)` function was added, following the exact
+same fetch/authHeaders/handleResponse pattern as every other
+function in this file — hits GET /api/workouts/muscle-volume.
+
+FULL FILE:
+```javascript
+// reads VITE_API_URL in production; falls back to '/api' for local dev (Vite proxy)
+const BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
+// helper — builds the Authorization header from the token
+// called inside every function that hits a protected route
+// this is why we don't need to pass token as a param every time —
+// the caller passes it once and this function formats it correctly
+function authHeaders(token) {
+  return {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  }
+}
+
+// central handler for every API response
+// if the token is dead (401), clear the session and bounce to login
+async function handleResponse(response, errorMessage) {
+  // server rejects the token (expired or invalid)
+  if (response.status === 401) {
+    // if passes, remove token and username
+    localStorage.removeItem("token")
+    localStorage.removeItem("username")
+
+    // redirect to login page
+    window.location.href = '/login'
+    throw new Error("Session expired, please log in again.")
+  }
+
+  // any other failure
+  if (!response.ok) {
+    throw new Error(errorMessage)
+  }
+
+  return response.json()
+}
+
+// GET /api/workouts — fetch all workouts for the logged-in user
+export async function getWorkouts(token) {
+  const response = await fetch(`${BASE_URL}/workouts`, {
+    // GET requests don't have a body but still need the auth header
+    // the server uses the token to know WHOSE workouts to return
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch workouts')
+}
+
+// POST /api/workouts — create a new workout
+export async function createWorkout(token, name) {
+  const response = await fetch(`${BASE_URL}/workouts`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    // name is the only field needed — user_id comes from the token on the server
+    body: JSON.stringify({ name })
+  })
+  return handleResponse(response, 'Failed to create workouts')
+}
+
+// GET /api/workouts/:id — fetch one workout with exercises and sets
+export async function getWorkout(token, id) {
+  const response = await fetch(`${BASE_URL}/workouts/${id}`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch workout')
+}
+
+// DELETE /api/workouts/:id — delete a workout
+export async function deleteWorkout(token, id) {
+  const response = await fetch(`${BASE_URL}/workouts/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to delete workout')
+}
+
+// POST /api/workouts/:workoutId/exercises — add exercise to a workout
+export async function createExercise(token, workoutId, name, muscleGroup) {
+  const response = await fetch(`${BASE_URL}/workouts/${workoutId}/exercises`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ name, muscle_group: muscleGroup })
+  })
+  return handleResponse(response, 'Failed to create exercise')
+}
+
+// DELETE /api/workouts/exercises/:id — delete an exercise
+export async function deleteExercise(token, id) {
+  const response = await fetch(`${BASE_URL}/workouts/exercises/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to delete exercise')
+}
+
+// POST /api/sets — add a set to an exercise
+export async function createSet(token, exerciseId, reps, weight, set_number) {
+  const response = await fetch(`${BASE_URL}/sets`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    // exerciseId goes in the body — sets are mounted at /api/sets not nested in URL
+    body: JSON.stringify({ exerciseId, reps, weight, set_number })
+  })
+  return handleResponse(response, 'Failed to create set')
+}
+
+// DELETE /api/sets/:id — delete a set
+export async function deleteSet(token, id) {
+  const response = await fetch(`${BASE_URL}/sets/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token)
+  })
+  if (!response.ok) throw new Error('Failed to delete set')
+}
+
+// GET /api/workouts/progress/:exerciseName
+// fetches max weight per session for a given exercise — used for the progress chart
+export async function getExerciseProgress(token, exerciseName) {
+  // encodeURIComponent handles spaces in exercise names — "Bench Press" → "Bench%20Press"
+  const response = await fetch(
+    `${BASE_URL}/workouts/progress/${encodeURIComponent(exerciseName)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch progress')
+}
+
+// GET /api/workouts/muscle-volume
+// total tonnage per muscle group, across all workouts — feeds the anatomy chart
+export async function getMuscleVolume(token) {
+  const response = await fetch(`${BASE_URL}/workouts/muscle-volume`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch muscle volume')
+}
+
+// GET /api/achievements — fetch all unlocked achievements
+export async function getAchievements(token) {
+  const response = await fetch(`${BASE_URL}/achievements`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch achievements')
+}
+
+// GET /api/prs — fetch all PRs
+export async function getPRs(token) {
+  const response = await fetch(`${BASE_URL}/prs`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch PRs')
+}
+
+// GET /api/achievements/tiers — fetch the tier definitions
+export async function getTiers(token) {
+  const response = await fetch(`${BASE_URL}/achievements/tiers`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch tiers')
+}
+```
+
+--------------------------------------------------------------
+FILE: src/pages/WorkoutDetail.jsx  (EDITED)
+--------------------------------------------------------------
+WHY: Added `muscleGroup` state and a required `<select>` next to
+the exercise-name input, built from MUSCLE_GROUPS. Wired into
+handleAddExercise/createExercise; both fields reset on submit. The
+Add Exercise button is now disabled until BOTH exerciseName and
+muscleGroup are filled. Each exercise card now also shows a small
+badge with its tagged muscle group (only when present — legacy
+untagged exercises just show no badge).
+
+FULL FILE:
+```jsx
+import { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import {
+  getWorkout,
+  deleteWorkout,
+  createExercise,
+  deleteExercise,
+  createSet,
+  deleteSet,
+} from "../api/workouts";
+import { useAuth } from "../context/AuthContext";
+// import { ExerciseChart } from "../components/ExerciseChart";
+import styles from "../styles/WorkoutDetail.module.css";
+import confetti from "canvas-confetti";
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
+
+export function WorkoutDetail() {
+  // workout — single object containing { id, name, date, exercises: [] }
+  // starts null because we haven't fetched yet
+  const [workout, setWorkout] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // exerciseName — controlled input for adding a new exercise
+  const [exerciseName, setExerciseName] = useState("");
+  // muscleGroup — controlled select for tagging the new exercise, feeds the anatomy chart
+  const [muscleGroup, setMuscleGroup] = useState("");
+
+  // confetti effect when hitting a PR
+  const [celebration, setCelebration] = useState(null);
+
+  // newSet — tracks which exercise we're adding a set to, plus the set values
+  // exerciseId: null means no exercise is currently selected for set addition
+  const [newSet, setNewSet] = useState({
+    exerciseId: null,
+    reps: " ",
+    weight: " ",
+    set_number: " ",
+  });
+
+  // token comes from auth context — passed to every API call
+  const { token } = useAuth();
+  // id comes from the URL — /workouts/3 gives id = "3"
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchWorkout();
+    // [id] means refetch if the id in the URL changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  async function fetchWorkout() {
+    try {
+      setLoading(true);
+      // getWorkout fetches ONE workout by id WITH its exercises and sets nested inside
+      // the server runs the JOIN query and groupExercisesWithSets for us
+      const data = await getWorkout(token, id);
+      setWorkout(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDeleteWorkout() {
+    try {
+      await deleteWorkout(token, id);
+      // workout is gone — nothing left to show on this page
+      // navigate back to the list
+      navigate("/workouts");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAddExercise(e) {
+    e.preventDefault();
+    try {
+      // create the exercise — workout.id tells the server which workout it belongs to
+      await createExercise(token, id, exerciseName, muscleGroup);
+      // refetch so the new exercise appears immediately
+      await fetchWorkout();
+      // clear the inputs
+      setExerciseName("");
+      setMuscleGroup("");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteExercise(exerciseId) {
+    try {
+      await deleteExercise(token, exerciseId);
+      // refetch so the deleted exercise disappears
+      await fetchWorkout();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleAddSet(e) {
+    e.preventDefault();
+    try {
+      // newSet.exerciseId tells the server which exercise this set belongs to
+      // reps, weight, set_number are the actual set values
+      const result = await createSet(
+        token,
+        newSet.exerciseId,
+        newSet.reps,
+        newSet.weight,
+        newSet.set_number,
+      );
+
+      if (result.isPR) {
+        const exercise = workout.exercises.find(
+          (ex) => ex.id === newSet.exerciseId,
+        );
+        const exerciseName = exercise?.name;
+
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        setCelebration({
+          weight: result.weight,
+          exerciseName: exerciseName, // NEW — pass it into celebration state
+          achievements: result.unlockedAchievements,
+        });
+      }
+
+      // refetch so the new set appears under the right exercise
+      await fetchWorkout();
+      // reset set form but keep exerciseId so user can add another set to same exercise
+      setNewSet({
+        exerciseId: newSet.exerciseId,
+        reps: "",
+        weight: "",
+        set_number: "",
+      });
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleDeleteSet(setId) {
+    try {
+      await deleteSet(token, setId);
+      await fetchWorkout();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // early returns — same pattern as every other page
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  // if fetch succeeded but returned nothing
+  if (!workout) return <div>Workout not found</div>;
+
+  return (
+    <div className={styles.container}>
+      {/* PR CONFETTI FX */}
+      {celebration && (
+        <div className={styles.celebrationBanner}>
+          <h2>
+            🎉 New PR on {celebration.exerciseName}! {celebration.weight}kg
+          </h2>
+          {celebration.achievements.length > 0 && (
+            <div>
+              {celebration.achievements.map((a) => (
+                <p key={a.tier}>
+                  {a.icon} Achievement unlocked: {a.name}
+                </p>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setCelebration(null)}>Dismiss</button>
+        </div>
+      )}
+      <button className={styles.backBtn} onClick={() => navigate("/workouts")}>
+        ← Back
+      </button>
+
+      <div className={styles.header}>
+        <div className={styles.headerInfo}>
+          <h1>{workout.name}</h1>
+          <p>{workout.date}</p>
+        </div>
+        <button
+          className={styles.deleteWorkoutBtn}
+          onClick={handleDeleteWorkout}
+        >
+          Delete Workout
+        </button>
+      </div>
+
+      <form onSubmit={handleAddExercise} className={styles.addExerciseForm}>
+        <input
+          className={styles.input}
+          value={exerciseName}
+          onChange={(e) => setExerciseName(e.target.value)}
+          placeholder="Exercise name (e.g. Bench Press)"
+          required
+        />
+        <select
+          className={styles.select}
+          value={muscleGroup}
+          onChange={(e) => setMuscleGroup(e.target.value)}
+          required
+        >
+          <option value="" disabled>
+            Select muscle group
+          </option>
+          {MUSCLE_GROUPS.map((group) => (
+            <option key={group.value} value={group.value}>
+              {group.label}
+            </option>
+          ))}
+        </select>
+        {/* disabled until both fields are filled — prevents submitting an untagged exercise */}
+        <button
+          type="submit"
+          className={styles.addBtn}
+          disabled={!exerciseName || !muscleGroup}
+        >
+          Add Exercise
+        </button>
+      </form>
+
+      {workout.exercises.length === 0 && (
+        <p className={styles.emptyMessage}>No exercises yet.</p>
+      )}
+
+      {workout.exercises.map((exercise) => (
+        <div key={exercise.id} className={styles.exerciseCard}>
+          <div className={styles.exerciseHeader}>
+            <h3 className={styles.exerciseName}>
+              {exercise.name}
+              {exercise.muscle_group && (
+                <span className={styles.muscleBadge}>
+                  {exercise.muscle_group}
+                </span>
+              )}
+            </h3>
+            <button
+              className={styles.deleteExerciseBtn}
+              onClick={() => handleDeleteExercise(exercise.id)}
+            >
+              Delete
+            </button>
+          </div>
+
+          {exercise.sets.length === 0 && (
+            <p className={styles.emptyMessage}>No sets yet.</p>
+          )}
+
+          {exercise.sets.map((set) => (
+            <div key={set.id} className={styles.setRow}>
+              <span>Set {set.set_number}</span>
+              <span>{set.reps} reps</span>
+              {/* weight stored as REAL in SQLite — supports decimals like 22.5kg */}
+              <span>{set.weight} lbs</span>
+              <button
+                className={styles.deleteSetBtn}
+                onClick={() => handleDeleteSet(set.id)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          {/* only renders when this exercise has been logged in at least 2 workouts
+              exerciseName prop is passed so the chart knows what data to fetch */}
+          {/*<ExerciseChart exerciseName={exercise.name} > */}
+
+          {/* conditional set form — only one exercise can have the form open at a time
+              newSet.exerciseId tracks which exercise is currently being added to
+              when it matches THIS exercise's id, show the form — otherwise show the button */}
+          {newSet.exerciseId === exercise.id ? (
+            <form onSubmit={handleAddSet} className={styles.addSetForm}>
+              <input
+                className={styles.input}
+                type="number"
+                placeholder="Reps"
+                value={newSet.reps}
+                onChange={(e) => setNewSet({ ...newSet, reps: e.target.value })}
+                required
+              />
+              <input
+                className={styles.input}
+                type="number"
+                placeholder="Weight (lbs)"
+                value={newSet.weight}
+                onChange={(e) =>
+                  setNewSet({ ...newSet, weight: e.target.value })
+                }
+                required
+              />
+              <input
+                className={styles.input}
+                type="number"
+                placeholder="Set #"
+                value={newSet.set_number}
+                onChange={(e) =>
+                  setNewSet({ ...newSet, set_number: e.target.value })
+                }
+                required
+              />
+              <button type="submit" className={styles.addBtn}>
+                Save
+              </button>
+              {/* type="button" prevents this from triggering the form's onSubmit */}
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={() =>
+                  setNewSet({
+                    exerciseId: null,
+                    reps: "",
+                    weight: "",
+                    set_number: "",
+                  })
+                }
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button
+              className={styles.addSetBtn}
+              onClick={() => setNewSet({ ...newSet, exerciseId: exercise.id })}
+            >
+              + Add Set
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+--------------------------------------------------------------
+FILE: src/styles/WorkoutDetail.module.css  (EDITED — added 3 classes)
+--------------------------------------------------------------
+WHY: `.select` styles the new dropdown to match `.input`. `.muscleBadge`
+styles the small tag shown on each exercise card. `.exerciseName` was
+changed from plain text styling to a flex row (with a gap) so the
+name and the new badge sit side by side cleanly.
+
+FULL FILE:
+```css
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.backBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.backBtn:hover {
+  color: var(--text-primary);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.headerInfo h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.headerInfo p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.deleteWorkoutBtn {
+  background: transparent;
+  border: 1px solid rgba(233, 69, 96, 0.3);
+  color: var(--accent);
+  border-radius: var(--border-radius);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+
+.deleteWorkoutBtn:hover {
+  background: rgba(233, 69, 96, 0.1);
+  border-color: var(--accent);
+}
+
+.addExerciseForm {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.input {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.addBtn {
+  background: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.6rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.addBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.addBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.muscleBadge {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 0.1rem 0.5rem;
+  text-transform: capitalize;
+}
+
+.exerciseCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.exerciseHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.exerciseName {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.deleteExerciseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  transition: color 0.15s;
+}
+
+.deleteExerciseBtn:hover {
+  color: var(--accent);
+}
+
+.setRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.setRow:last-of-type {
+  border-bottom: none;
+}
+
+.deleteSetBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin-left: auto;
+  transition: color 0.15s;
+}
+
+.deleteSetBtn:hover {
+  color: var(--accent);
+}
+
+.addSetForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto auto;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+.addSetBtn {
+  margin-top: 1rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  width: 100%;
+  transition: all 0.15s;
+}
+
+.addSetBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.cancelBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.emptyMessage {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 0.5rem 0;
+}
+
+.celebrationBanner {
+  background: linear-gradient(135deg, #e94560, #ff6b8a);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(233, 69, 96, 0.4);
+}
+
+.celebrationBanner button {
+  margin-top: 0.75rem;
+  background: white;
+  color: #e94560;
+  border: none;
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+```
+
+--------------------------------------------------------------
+FILE: src/components/MuscleBodyChart.jsx  (NEW)
+--------------------------------------------------------------
+WHY: This is the actual anatomy chart. It draws a simple non-
+interactive humanoid silhouette (head/torso/arms/legs — plain
+circle/rect shapes, not a traced illustration) as visual context,
+then layers ~10 colorable region shapes on top (6-ish per view).
+Each region has a `group` key (one of the 10 muscle groups) and its
+fill color is computed live from `intensityByGroup` via the shared
+getFill() helper. `shoulders` and `calves` appear as separate shapes
+in BOTH the front and back region lists but point at the same group
+key, so a single intensity value automatically colors both views
+consistently with zero special-case code.
+
+FULL FILE:
+```jsx
+import { getFill } from "../utils/muscleFill";
+
+// non-interactive background silhouette — same for both views, purely for context.
+// plain shapes (circle/rect), not an anatomically traced path — no illustration skill needed.
+const SILHOUETTE = [
+  { shape: "circle", cx: 100, cy: 28, r: 18 }, // head
+  { shape: "rect", x: 92, y: 44, width: 16, height: 12, rx: 4 }, // neck
+  { shape: "rect", x: 68, y: 55, width: 64, height: 115, rx: 18 }, // torso
+  { shape: "rect", x: 38, y: 60, width: 22, height: 60, rx: 10 }, // left upper arm
+  { shape: "rect", x: 35, y: 118, width: 20, height: 55, rx: 9 }, // left forearm
+  { shape: "rect", x: 140, y: 60, width: 22, height: 60, rx: 10 }, // right upper arm
+  { shape: "rect", x: 145, y: 118, width: 20, height: 55, rx: 9 }, // right forearm
+  { shape: "rect", x: 72, y: 168, width: 26, height: 70, rx: 12 }, // left thigh
+  { shape: "rect", x: 102, y: 168, width: 26, height: 70, rx: 12 }, // right thigh
+  { shape: "rect", x: 74, y: 236, width: 22, height: 65, rx: 10 }, // left shin
+  { shape: "rect", x: 104, y: 236, width: 22, height: 65, rx: 10 }, // right shin
+];
+
+// colorable regions per view — each points at a muscle_group key.
+// "shoulders" and "calves" appear in both arrays but share the same key,
+// so they automatically pick up the same computed intensity below.
+const FRONT_REGIONS = [
+  { group: "shoulders", shape: "ellipse", cx: 52, cy: 66, rx: 16, ry: 13 },
+  { group: "shoulders", shape: "ellipse", cx: 148, cy: 66, rx: 16, ry: 13 },
+  { group: "chest", shape: "rect", x: 76, y: 62, width: 48, height: 28, rx: 8 },
+  { group: "biceps", shape: "rect", x: 40, y: 72, width: 18, height: 32, rx: 7 },
+  { group: "biceps", shape: "rect", x: 142, y: 72, width: 18, height: 32, rx: 7 },
+  { group: "abs", shape: "rect", x: 80, y: 96, width: 40, height: 58, rx: 8 },
+  { group: "quads", shape: "rect", x: 74, y: 172, width: 22, height: 62, rx: 10 },
+  { group: "quads", shape: "rect", x: 104, y: 172, width: 22, height: 62, rx: 10 },
+  { group: "calves", shape: "rect", x: 76, y: 240, width: 18, height: 56, rx: 8 },
+  { group: "calves", shape: "rect", x: 106, y: 240, width: 18, height: 56, rx: 8 },
+];
+
+const BACK_REGIONS = [
+  { group: "shoulders", shape: "ellipse", cx: 52, cy: 66, rx: 16, ry: 13 },
+  { group: "shoulders", shape: "ellipse", cx: 148, cy: 66, rx: 16, ry: 13 },
+  { group: "back", shape: "rect", x: 74, y: 60, width: 52, height: 70, rx: 10 },
+  { group: "triceps", shape: "rect", x: 40, y: 72, width: 18, height: 32, rx: 7 },
+  { group: "triceps", shape: "rect", x: 142, y: 72, width: 18, height: 32, rx: 7 },
+  { group: "glutes", shape: "rect", x: 72, y: 166, width: 56, height: 26, rx: 12 },
+  { group: "hamstrings", shape: "rect", x: 74, y: 196, width: 22, height: 38, rx: 9 },
+  { group: "hamstrings", shape: "rect", x: 104, y: 196, width: 22, height: 38, rx: 9 },
+  { group: "calves", shape: "rect", x: 76, y: 240, width: 18, height: 56, rx: 8 },
+  { group: "calves", shape: "rect", x: 106, y: 240, width: 18, height: 56, rx: 8 },
+];
+
+export function MuscleBodyChart({ view, intensityByGroup }) {
+  const regions = view === "back" ? BACK_REGIONS : FRONT_REGIONS;
+
+  return (
+    <svg viewBox="0 0 200 340" width="100%" height="100%" role="img" aria-label={`Muscle training volume, ${view} view`}>
+      {SILHOUETTE.map((s, i) =>
+        s.shape === "circle" ? (
+          <circle key={i} cx={s.cx} cy={s.cy} r={s.r} fill="var(--bg-card)" stroke="var(--border)" />
+        ) : (
+          <rect
+            key={i}
+            x={s.x}
+            y={s.y}
+            width={s.width}
+            height={s.height}
+            rx={s.rx}
+            fill="var(--bg-card)"
+            stroke="var(--border)"
+          />
+        )
+      )}
+
+      {regions.map((r, i) =>
+        r.shape === "ellipse" ? (
+          <ellipse
+            key={i}
+            data-muscle-group={r.group}
+            cx={r.cx}
+            cy={r.cy}
+            rx={r.rx}
+            ry={r.ry}
+            style={{ fill: getFill(r.group, intensityByGroup) }}
+          />
+        ) : (
+          <rect
+            key={i}
+            data-muscle-group={r.group}
+            x={r.x}
+            y={r.y}
+            width={r.width}
+            height={r.height}
+            rx={r.rx}
+            style={{ fill: getFill(r.group, intensityByGroup) }}
+          />
+        )
+      )}
+    </svg>
+  );
+}
+```
+
+--------------------------------------------------------------
+FILE: src/pages/MuscleChart.jsx  (NEW)
+--------------------------------------------------------------
+WHY: The page at /muscles. Fetches muscle-volume data on mount
+(same pattern as Dashboard.jsx). Computes `tonnageByGroup` (a
+lookup) and `intensityByGroup` (each group's tonnage divided by
+whichever group has the MOST tonnage, so the highest-volume group
+is always rendered at full intensity — see risk item F in section 5
+for the implication of this). Shows an explicit empty-state message
+if there's no tagged/logged data yet, a front/back toggle, and a
+legend with each group's raw tonnage number next to a swatch that
+matches its rendered color.
+
+FULL FILE:
+```jsx
+import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { getMuscleVolume } from "../api/workouts";
+import { MuscleBodyChart } from "../components/MuscleBodyChart";
+import { getFill } from "../utils/muscleFill";
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
+import styles from "../styles/MuscleChart.module.css";
+
+export function MuscleChart() {
+  const [view, setView] = useState("front");
+  const [volume, setVolume] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const { token } = useAuth();
+
+  useEffect(() => {
+    async function fetchVolume() {
+      try {
+        setLoading(true);
+        const data = await getMuscleVolume(token);
+        setVolume(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchVolume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+
+  // volume is [{ muscle_group, tonnage }] for groups with logged data — turn it
+  // into a lookup, then scale every group 0..1 relative to whichever is highest
+  const tonnageByGroup = {};
+  for (const row of volume) {
+    tonnageByGroup[row.muscle_group] = Number(row.tonnage);
+  }
+
+  const maxTonnage = Math.max(0, ...Object.values(tonnageByGroup));
+
+  const intensityByGroup = {};
+  for (const group of MUSCLE_GROUPS) {
+    intensityByGroup[group.value] = maxTonnage > 0
+      ? (tonnageByGroup[group.value] ?? 0) / maxTonnage
+      : 0;
+  }
+
+  return (
+    <div className={styles.container}>
+      <h1>Muscle Chart</h1>
+
+      {volume.length === 0 && (
+        <p className={styles.empty}>
+          No tagged training data yet — tag an exercise with a muscle group
+          and log a set to see it here.
+        </p>
+      )}
+
+      <div className={styles.toggleRow}>
+        <button
+          className={`${styles.toggleBtn} ${view === "front" ? styles.toggleBtnActive : ""}`}
+          onClick={() => setView("front")}
+        >
+          Front
+        </button>
+        <button
+          className={`${styles.toggleBtn} ${view === "back" ? styles.toggleBtnActive : ""}`}
+          onClick={() => setView("back")}
+        >
+          Back
+        </button>
+      </div>
+
+      <div className={styles.layout}>
+        <div className={styles.chartWrap}>
+          <MuscleBodyChart view={view} intensityByGroup={intensityByGroup} />
+        </div>
+
+        <div className={styles.legend}>
+          {MUSCLE_GROUPS.map((group) => (
+            <div key={group.value} className={styles.legendRow}>
+              <span className={styles.legendName}>
+                <span
+                  className={styles.legendSwatch}
+                  style={{ background: getFill(group.value, intensityByGroup) }}
+                />
+                {group.label}
+              </span>
+              <span className={styles.legendTonnage}>
+                {tonnageByGroup[group.value]
+                  ? `${tonnageByGroup[group.value].toLocaleString()} lbs`
+                  : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+--------------------------------------------------------------
+FILE: src/styles/MuscleChart.module.css  (NEW)
+--------------------------------------------------------------
+WHY: Styling for the new page, built entirely from the app's
+existing CSS variables (--bg-card, --border, --accent, --text-*,
+--border-radius) so it matches the rest of the app without
+introducing new colors.
+
+FULL FILE:
+```css
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.toggleRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.toggleBtn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  transition: all 0.15s;
+}
+
+.toggleBtn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.toggleBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 320px) 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.chartWrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+}
+
+.legendName {
+  text-transform: capitalize;
+  color: var(--text-primary);
+}
+
+.legendSwatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 0.6rem;
+}
+
+.legendTonnage {
+  color: var(--text-secondary);
+}
+
+.empty {
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+```
+
+--------------------------------------------------------------
+FILE: src/App.jsx  (EDITED)
+--------------------------------------------------------------
+WHY: Added the /muscles route, wrapped in ProtectedRoute exactly
+like every other authenticated page.
+
+FULL FILE:
+```jsx
+import { Routes, Route } from "react-router-dom";
+import { ProtectedRoute } from "./components/ProtectedRoute";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { WorkoutList } from "./pages/WorkoutList";
+import { WorkoutDetail } from "./pages/WorkoutDetail";
+import { Dashboard } from "./pages/Dashboard";
+import { MuscleChart } from "./pages/MuscleChart";
+import { Navbar } from "./components/Navbar";
+import "./App.css";
+
+function App() {
+  return (
+    <>
+      {/* Navbar renders on every page regardless of route */}
+      <Navbar />
+      <main>
+        <Routes>
+          {/* public routes — anyone can access these */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* protected routes — redirect to /login if not authenticated */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workouts"
+            element={
+              <ProtectedRoute>
+                <WorkoutList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/workouts/:id"
+            element={
+              <ProtectedRoute>
+                <WorkoutDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/muscles"
+            element={
+              <ProtectedRoute>
+                <MuscleChart />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </main>
+    </>
+  );
+}
+
+export default App;
+```
+
+--------------------------------------------------------------
+FILE: src/components/Navbar.jsx  (EDITED)
+--------------------------------------------------------------
+WHY: Added a third nav link, "Muscles" → /muscles, using the exact
+same NavLink pattern as the existing Dashboard/Workouts links.
+
+FULL FILE:
+```jsx
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import styles from "../styles/Navbar.module.css";
+
+export function Navbar() {
+  // pull what we need from auth context
+  // user — { username } or null
+  // logout — clears token and user from state and localStorage
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    // clear the session from context and localStorage
+    logout();
+    // send user to login page — they're no longer authenticated
+    navigate("/login");
+  }
+
+  return (
+    <nav className={styles.navbar}>
+      {/* brand — always visible */}
+      <Link to="/" className={styles.brand}>
+        Workout Logger
+      </Link>
+
+      <div className={styles.navLinks}>
+        {user ? (
+          // LOGGED IN — show app navigation and logout
+          <>
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Dashboard
+            </NavLink>
+            <NavLink
+              to="/workouts"
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Workouts
+            </NavLink>
+            <NavLink
+              to="/muscles"
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Muscles
+            </NavLink>
+            {/* show who's logged in */}
+            <span className={styles.username}>{user.username}</span>
+            <button className={styles.logoutBtn} onClick={handleLogout}>
+              Logout
+            </button>
+          </>
+        ) : (
+          // NOT LOGGED IN — show auth links only
+          <>
+            <NavLink
+              to="/login"
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Login
+            </NavLink>
+            <NavLink
+              to="/register"
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Register
+            </NavLink>
+          </>
+        )}
+      </div>
+    </nav>
+  );
+}
+```
+
+------------------------------------------------------------------
+5. FINDINGS — RISKS / POSSIBLE FUTURE ERRORS IF NOT HANDLED WELL
+------------------------------------------------------------------
+
+A. NO MIGRATION FRAMEWORK — MANUAL DB SYNC RISK
+   Every future schema change requires (1) hand-editing setup-db.js
+   and (2) manually running `node setup-db.js` against the live
+   Neon DB. If step 2 is ever skipped after a future schema edit,
+   the deployed app will throw Postgres "column does not exist"
+   errors on the very next request that touches that column. This
+   risk grows as Part 5 (analytics) will likely need more schema
+   changes.
+
+B. LEGACY EXERCISES HAVE muscle_group = NULL
+   The /muscle-volume query filters `WHERE muscle_group IS NOT
+   NULL`, so any exercise logged before this update simply won't
+   contribute to the chart — correct/safe behavior, but may look
+   like "missing" data to you if you remember training something
+   the chart doesn't reflect. There's no bulk re-tagging tool built;
+   old exercises would need to be re-tagged manually if you want
+   them reflected (not currently possible — there's no edit-exercise
+   UI, only add/delete).
+
+C. DUPLICATED MUSCLE_GROUPS LIST (frontend + backend)
+   If you ever add/rename/remove a muscle group, BOTH
+   server/constants/muscleGroups.js AND src/constants/muscleGroups.js
+   must be updated together. If they drift out of sync:
+     - Frontend offers a group the backend doesn't recognize →
+       exercise creation fails with a 400 "Invalid muscle_group"
+       error.
+     - Backend accepts a group the frontend doesn't know how to
+       label/render → it would show up as an unlabeled/blank legend
+       row or an uncolored, unlabeled chart region.
+
+D. CASE-SENSITIVE EXACT-MATCH VALIDATION ON THE BACKEND
+   `MUSCLE_GROUPS.includes(muscle_group)` requires an exact
+   lowercase match. This is fine as long as ALL exercise creation
+   goes through this app's own dropdown (which always sends the
+   correct lowercase value). But if the API is ever called directly
+   (Postman, curl, a future mobile client, etc.) with a differently
+   -cased value like "Chest" instead of "chest", it will be rejected
+   with a 400 even though it's conceptually a valid value. No
+   `.toLowerCase()` normalization was added. Worth adding if this
+   API is ever consumed by more than this one frontend.
+
+E. ALL-TIME TONNAGE, NO TIME DECAY (deliberate v1 scope, but a
+   real limitation until Part 5)
+   The chart's "intensity" is a LIFETIME total. A muscle group
+   trained heavily months ago but not touched recently will still
+   show as fully lit today — nothing distinguishes "trained a lot
+   ever" from "trained a lot recently." If you expect the chart to
+   reflect your CURRENT training focus, this will look wrong until
+   a time-windowed version of the query is built (natural fit for
+   Part 5's analytics work — one extra `AND workouts.date >= ...`
+   clause).
+
+F. RELATIVE (NOT ABSOLUTE) INTENSITY SCALING
+   Each group's intensity = its tonnage ÷ whichever single group has
+   the MOST tonnage. That means the highest-volume group is ALWAYS
+   rendered at full saturation — even if, in absolute terms, it's
+   barely any volume (e.g. a brand-new account with just one logged
+   set will show that one muscle group as "maximally trained," which
+   overstates reality). This is a relative visualization by design,
+   but could be misleading without a caption. Worth a tooltip or
+   note clarifying "relative to your own history" if this comes up
+   as confusing later.
+
+G. SVG REGION COORDINATES ARE HAND-ESTIMATED, NOT VISUALLY TESTED
+   The rectangles/ellipses in MuscleBodyChart.jsx were placed by
+   reasoning about a 200x340 coordinate grid, not by rendering and
+   eyeballing in an actual browser (this session only ran `eslint`
+   and `vitest`, not a visual check — the schema migration hasn't
+   even been applied yet, so the page can't fully function against
+   live data anyway). Regions may overlap oddly or sit off from the
+   silhouette. Expect to nudge x/y/width/height/rx values after
+   actually looking at /muscles in a browser.
+
+H. UNVERIFIED AGAINST REAL DATABASE RESPONSES
+   `Number(row.tonnage)` assumes Postgres's SUM() over a REAL column
+   comes back as something Number() parses cleanly via the `pg`
+   driver. This is a standard, low-risk assumption, but it has NOT
+   been exercised against the live database yet, because the schema
+   migration (setup-db.js) has not been run. Worth a quick sanity
+   check the first time you load /muscles with real data.
+
+I. NO DRILL-DOWN INTERACTIVITY (deliberately out of scope)
+   You can't click "quads" to see which exercises contributed to
+   that number. This mirrors the still-unbuilt Part 2 "clickable
+   PR" feature, but for muscle regions — not built here, flagged as
+   a natural future enhancement, not a bug.
+
+J. ExerciseChart.jsx REMAINS DISABLED
+   The existing commented-out `<ExerciseChart>` line in
+   WorkoutDetail.jsx was left untouched — still disabled, not
+   related to this work, not reactivated.
+
+K. PRE-EXISTING LINT ERROR IN AuthContext.jsx (NOT introduced this
+   session — confirmed via `git diff` showing zero changes to that
+   file)
+   ESLint's `react-hooks/set-state-in-effect` rule flags
+   AuthContext.jsx calling setToken/setUser synchronously inside a
+   useEffect that restores the session from localStorage on mount.
+   This is a recognized React anti-pattern (can trigger cascading
+   renders) but pre-dates this session and is out of scope for
+   Part 3/4. Worth fixing at some point.
+
+L. WHY getFill LIVES IN ITS OWN FILE (src/utils/muscleFill.js)
+   Originally the fill-color function was defined directly inside
+   MuscleBodyChart.jsx and exported alongside the component. ESLint's
+   `react-refresh/only-export-components` rule flagged this — Vite's
+   Fast Refresh (hot reload) only works reliably when a component
+   file exports ONLY components, not a mix of a component and a
+   plain function. Moving getFill into its own utils file both fixed
+   the lint error and gave MuscleChart.jsx (the legend) and
+   MuscleBodyChart.jsx (the SVG) one shared source of truth for the
+   color formula, so they can never visually disagree.
+
+------------------------------------------------------------------
+6. WHAT'S NEXT — FULL RUNDOWN
+------------------------------------------------------------------
+
+IMMEDIATE (before Part 3/4 is actually usable):
+  1. Run `node setup-db.js` from the `server/` folder — applies the
+     muscle_group column to your live Neon database. Nothing works
+     until this runs.
+  2. Start both servers (`npm run dev` at project root; however you
+     normally launch server/index.js) and manually walk the golden
+     path:
+       - Add an exercise, confirm the muscle-group dropdown is
+         required and submits correctly.
+       - Log a few sets across 2-3 different muscle groups.
+       - Visit /muscles — confirm trained groups render tinted
+         roughly proportional to logged tonnage, untrained groups
+         stay neutral grey, and the front/back toggle swaps the SVG.
+       - Check the empty state looks right (message shows when no
+         tagged data exists yet).
+       - Confirm the "Muscles" nav link works and nothing on
+         WorkoutDetail/Dashboard regressed.
+  3. Expect to nudge SVG region coordinates in MuscleBodyChart.jsx
+     after actually seeing it rendered (see risk G above) — this is
+     normal, not a sign something's broken.
+
+REMAINING ROADMAP PARTS (not started):
+
+  PART 1 — New UI + mobile polish
+    Restyle the whole app to match your reference screenshots: dark
+    cards, no glassy/blur effects inside containers, mobile-first
+    responsive layout. This would also be the natural place to
+    polish the just-built MuscleChart page's layout for small
+    screens (currently a 2-column grid that only collapses at
+    640px — worth revisiting once real mobile styling conventions
+    are set). You'd learn responsive/mobile CSS properly here.
+
+  PART 2 — PR achievement improvements
+    Some of this already exists (per-exercise PR tracking, "New PR
+    on X" text with confetti, per-exercise tier progress on the
+    Dashboard). Still to build:
+      - Clickable PRs — clicking a PR shows which exercise/sets
+        produced it (a detail view).
+      - Real logos/icons instead of emoji for achievement tiers.
+      - Fix the "First PR" tier firing once PER EXERCISE (currently
+        every single exercise's first PR unlocks "First PR" — the
+        "don't replicate first PR" ask from your original list).
+      - This would teach richer data flow between backend and a
+        detail view.
+
+  PART 5 — Daily reset + analytics
+    Per your clarification this session: NOT a delete-based reset.
+    Each workout already has a `date` column and stays in the
+    database as its own dated row — Monday's workout and
+    Wednesday's workout are both permanently queryable. "Analytics"
+    means building comparisons/graphs ACROSS those dated rows (e.g.
+    total volume or sets-per-exercise on Monday vs Wednesday,
+    progressive-overload trends over time). This is also where the
+    "all-time, no time window" limitation of the muscle-volume query
+    (risk E above) would naturally get addressed — likely by adding
+    a date-range parameter to a variant of that same query. You'd
+    learn time-series analysis here.
+
+RECOMMENDED NEXT STEP: verify Part 3/4 first (step 1-3 above, your
+hands-on work), then decide between Part 1 (UI polish — lower risk,
+immediate visual payoff, and would also make the just-built Muscle
+Chart page look as good as the rest) or Part 2 (achievements). Part
+1 was originally sequenced first in the roadmap for exactly this
+reason — everything built after it, including today's work, gets a
+better home once it lands.
+
+====================================================================
+END OF SUMMARY
+====================================================================

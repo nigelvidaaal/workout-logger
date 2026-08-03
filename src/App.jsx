@@ -5,6 +5,7 @@ import { Register } from "./pages/Register";
 import { WorkoutList } from "./pages/WorkoutList";
 import { WorkoutDetail } from "./pages/WorkoutDetail";
 import { Dashboard } from "./pages/Dashboard";
+import { MuscleChart } from "./pages/MuscleChart";
 import { Navbar } from "./components/Navbar";
 import "./App.css";
 
@@ -41,6 +42,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <WorkoutDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/muscles"
+            element={
+              <ProtectedRoute>
+                <MuscleChart />
               </ProtectedRoute>
             }
           />

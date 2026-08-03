@@ -44,6 +44,14 @@ export function Navbar() {
             >
               Workouts
             </NavLink>
+            <NavLink
+              to="/muscles"
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              Muscles
+            </NavLink>
             {/* show who's logged in */}
             <span className={styles.username}>{user.username}</span>
             <button className={styles.logoutBtn} onClick={handleLogout}>

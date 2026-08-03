@@ -73,11 +73,11 @@ export async function deleteWorkout(token, id) {
 }
 
 // POST /api/workouts/:workoutId/exercises — add exercise to a workout
-export async function createExercise(token, workoutId, name) {
+export async function createExercise(token, workoutId, name, muscleGroup) {
   const response = await fetch(`${BASE_URL}/workouts/${workoutId}/exercises`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ name })
+    body: JSON.stringify({ name, muscle_group: muscleGroup })
   })
   return handleResponse(response, 'Failed to create exercise')
 }
@@ -120,6 +120,15 @@ export async function getExerciseProgress(token, exerciseName) {
     { headers: authHeaders(token) }
   )
   return handleResponse(response, 'Failed to fetch progress')
+}
+
+// GET /api/workouts/muscle-volume
+// total tonnage per muscle group, across all workouts — feeds the anatomy chart
+export async function getMuscleVolume(token) {
+  const response = await fetch(`${BASE_URL}/workouts/muscle-volume`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch muscle volume')
 }
 
 // GET /api/achievements — fetch all unlocked achievements

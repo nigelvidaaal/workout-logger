@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
+const { MUSCLE_GROUPS } = require('../constants/muscleGroups')
 
 // POST /api/workouts/:workoutId/exercises
 // adds a new exercise to a specific workout
@@ -9,11 +10,14 @@ const requireAuth = require('../middleware/auth')
 // this router will be mounted at '/api/workouts' — so the full path combines
 router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
 
-  // workoutId - workout added to, name - exercise name 
+  // workoutId - workout added to, name - exercise name, muscle_group - tag used by the anatomy chart
   const { workoutId } = req.params
-  const { name } = req.body
+  const { name, muscle_group } = req.body
 
   if (!name) return res.status(400).json({ error: 'All fields required' })
+  if (!muscle_group || !MUSCLE_GROUPS.includes(muscle_group)) {
+    return res.status(400).json({ error: 'Invalid muscle_group' })
+  }
 
   // verify the workout exists AND belongs to this user before adding to it
   // this is the authorization check — you can't add exercises to someone else's workout
@@ -27,8 +31,8 @@ router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
     // insert the exercise
     // foreign key in action: exercises.workout_id = workouts.id
     const result = await pool.query(
-      'INSERT INTO exercises (workout_id, name) VALUES ($1, $2) RETURNING id',
-      [workoutId, name]
+      'INSERT INTO exercises (workout_id, name, muscle_group) VALUES ($1, $2, $3) RETURNING id, name, muscle_group',
+      [workoutId, name, muscle_group]
     )
 
     // fetch and return the newly created exercise

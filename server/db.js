@@ -30,10 +30,14 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
+  -- NOTE: this file (better-sqlite3) is not required by index.js or any route —
+  -- the running server uses db-pg.js (Postgres) exclusively. Kept in sync here
+  -- only for the standalone debug scripts (check-ach.js, checkpr.js) that still use it.
   CREATE TABLE IF NOT EXISTS exercises (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workout_id INTEGER NOT NULL,
     name TEXT NOT NULL,
+    muscle_group TEXT,
     FOREIGN KEY (workout_id) REFERENCES workouts(id)
   );
 

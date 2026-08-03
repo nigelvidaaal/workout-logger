@@ -25,8 +25,13 @@ async function setup() {
       id SERIAL PRIMARY KEY,
       workout_id INTEGER NOT NULL,
       name TEXT NOT NULL,
+      muscle_group TEXT,
       FOREIGN KEY (workout_id) REFERENCES workouts(id)
     );
+
+    -- CREATE TABLE IF NOT EXISTS is a no-op against the already-existing prod table,
+    -- so this ALTER is what actually adds the column there. Safe to rerun.
+    ALTER TABLE exercises ADD COLUMN IF NOT EXISTS muscle_group TEXT;
 
     CREATE TABLE IF NOT EXISTS sets (
       id SERIAL PRIMARY KEY,

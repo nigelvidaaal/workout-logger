@@ -95,6 +95,30 @@
   cursor: not-allowed;
 }
 
+.select {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.muscleBadge {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 0.1rem 0.5rem;
+  text-transform: capitalize;
+}
+
 .exerciseCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -111,6 +135,9 @@
 }
 
 .exerciseName {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   font-size: 1.1rem;
   font-weight: 500;
 }

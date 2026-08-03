@@ -15,6 +15,7 @@ function groupExercisesWithSets(rows) {
       acc[row.exercise_id] = {
         id: row.exercise_id,
         name: row.exercise_name,
+        muscle_group: row.muscle_group,
         sets: []
       }
     }
@@ -79,7 +80,24 @@ router.post('/', requireAuth, async (req, res) => {
   }
 })
 
-// GET/:id - one workout with all its exercises and sets 
+// GET /api/workouts/muscle-volume
+// total tonnage (reps x weight) per muscle group, across ALL of the user's workouts.
+// registered BEFORE /:id — a single-segment path here would otherwise be
+// swallowed by the /:id route above and treated as an (invalid) workout id
+router.get('/muscle-volume', requireAuth, async (req, res) => {
+  const result = await pool.query(`
+    SELECT exercises.muscle_group, SUM(sets.reps * sets.weight) AS tonnage
+    FROM sets
+    JOIN exercises ON sets.exercise_id = exercises.id
+    JOIN workouts ON exercises.workout_id = workouts.id
+    WHERE workouts.user_id = $1 AND exercises.muscle_group IS NOT NULL
+    GROUP BY exercises.muscle_group
+  `, [req.userId])
+
+  res.json(result.rows)
+})
+
+// GET/:id - one workout with all its exercises and sets
 router.get('/:id', requireAuth, async (req, res) => {
   // req.body is for POST/PATCH 
   const { id } = req.params;
@@ -99,6 +117,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     SELECT
       exercises.id AS exercise_id,
       exercises.name AS exercise_name,
+      exercises.muscle_group,
       sets.id AS set_id,
       sets.reps,
       sets.weight,
