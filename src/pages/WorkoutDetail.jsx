@@ -123,20 +123,6 @@ export function WorkoutDetail() {
         });
       }
 
-      // if the set was a PR, pop celeb fx
-      if (result.isPR) {
-        confetti({
-          particleCount: 120,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-
-        // store what to celebrate so the banner renders
-        setCelebration({
-          weight: result.weight,
-          achievements: result.unlockedAchievements,
-        });
-      }
       // refetch so the new set appears under the right exercise
       await fetchWorkout();
       // reset set form but keep exerciseId so user can add another set to same exercise
