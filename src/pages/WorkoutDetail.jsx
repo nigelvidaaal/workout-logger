@@ -9,7 +9,7 @@ import {
   deleteSet,
 } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
-import { ExerciseChart } from "../components/ExerciseChart";
+// import { ExerciseChart } from "../components/ExerciseChart";
 import styles from "../styles/WorkoutDetail.module.css";
 import confetti from "canvas-confetti";
 
@@ -109,6 +109,20 @@ export function WorkoutDetail() {
         newSet.set_number,
       );
 
+      if (result.isPR) {
+        const exercise = workout.exercises.find(
+          (ex) => ex.id === newSet.exerciseId,
+        );
+        const exerciseName = exercise?.name;
+
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        setCelebration({
+          weight: result.weight,
+          exerciseName: exerciseName, // NEW — pass it into celebration state
+          achievements: result.unlockedAchievements,
+        });
+      }
+
       // if the set was a PR, pop celeb fx
       if (result.isPR) {
         confetti({
@@ -157,7 +171,9 @@ export function WorkoutDetail() {
       {/* PR CONFETTI FX */}
       {celebration && (
         <div className={styles.celebrationBanner}>
-          <h2>🎉 New PR! {celebration.weight} lbs</h2>
+          <h2>
+            🎉 New PR on {celebration.exerciseName}! {celebration.weight}kg
+          </h2>
           {celebration.achievements.length > 0 && (
             <div>
               {celebration.achievements.map((a) => (
