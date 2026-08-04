@@ -5,24 +5,35 @@
 }
 
 :root {
-  --bg-primary: #0d0d0f;      /* was #0f0f1a (navy-black) → near-black, faint cool tint */
-  --bg-secondary: #16171b;    /* was #1a1a2e (navy) → cool charcoal, one step up from bg */
-  --bg-card: #1a1b20;         /* was #16213e (blue) → cool charcoal card, sits above secondary */
-  --accent: #ff4d00;          /* was #e94560 (pink) → red-orange */
-  --accent-hover: #e04400;    /* was #c73652 → darker red-orange for hover */
-  --text-primary: #ffffff;    /* unchanged — pure white */
-  --text-secondary: #a3a3ad;  /* was #a8a8b3 → very slightly cooler grey */
-  --text-muted: #6b6b74;      /* barely changed — muted grey */
-  --border: #2a2b32;          /* was #2a2a4a (bluish) → cool neutral grey border */
-  --success: #1D9E75;         /* unchanged — green still reads fine */
-  --border-radius: 8px;       /* unchanged */
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);  /* slightly deeper for the darker bg */
+  /* matte near-black canvas — all surfaces below are OPAQUE, no translucency/blur anywhere */
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #121212;    /* nav bar / secondary opaque surface, one step up from canvas */
+  --bg-card: #1f1f1f;         /* primary container panels — solid charcoal grey */
+  --accent: #ff4d00;          /* saturated red-orange — PR badges, streak icons, key indicators */
+  --accent-hover: #e04400;
+  --text-primary: #ffffff;
+  --text-secondary: #aaaaaa;  /* metadata, captions, non-selected items */
+  --text-muted: #707070;
+  --border: #2c2c2c;          /* neutral grey, no blue tint — minimal borders for definition only */
+  --success: #1D9E75;
+  --border-radius: 8px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: var(--bg-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--text-primary);
   min-height: 100vh;
+  /* subtle soft-focus blue-to-black diagonal — sits behind the opaque nav/cards,
+     only ever visible in the gaps between them, never inside a container */
+  background:
+    radial-gradient(ellipse 900px 600px at 15% -10%, rgba(20, 60, 110, 0.16), transparent 60%),
+    var(--bg-primary);
+  background-attachment: fixed;
+}
+
+h1, h2, h3 {
+  font-weight: 600;
 }
 
 a {

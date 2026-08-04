@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getMuscleVolume } from "../api/workouts";
 import { MuscleBodyChart } from "../components/MuscleBodyChart";
-import { getFill } from "../utils/muscleFill";
+import { getFill, getTierLabel } from "../utils/muscleFill";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import styles from "../styles/MuscleChart.module.css";
 
@@ -92,9 +92,14 @@ export function MuscleChart() {
                 {group.label}
               </span>
               <span className={styles.legendTonnage}>
-                {tonnageByGroup[group.value]
-                  ? `${tonnageByGroup[group.value].toLocaleString()} lbs`
-                  : "—"}
+                {tonnageByGroup[group.value] ? (
+                  <>
+                    {getTierLabel(group.value, intensityByGroup)} ·{" "}
+                    {tonnageByGroup[group.value].toLocaleString()} lbs
+                  </>
+                ) : (
+                  "—"
+                )}
               </span>
             </div>
           ))}

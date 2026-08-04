@@ -98,7 +98,7 @@
 
 .deleteBtn {
   background: transparent;
-  border: 1px solid rgba(233, 69, 96, 0.3);
+  border: 1px solid var(--border);
   color: var(--accent);
   border-radius: var(--border-radius);
   padding: 0.35rem 0.8rem;
@@ -107,7 +107,6 @@
 }
 
 .deleteBtn:hover {
-  background: rgba(233, 69, 96, 0.1);
   border-color: var(--accent);
 }
 
