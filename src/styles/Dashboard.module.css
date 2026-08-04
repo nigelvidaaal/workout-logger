@@ -114,3 +114,26 @@
 .prNext {
   color: var(--success);          
 }
+
+@media (max-width: 640px) {
+  .container {
+    padding: 1.5rem 1rem;
+  }
+
+  /* the 3-column PR row → single stacked column */
+  .prRow {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  /* date was right-aligned for the row layout — reads wrong when stacked */
+  .prDate {
+    text-align: left;
+  }
+
+  /* one clean column of achievement cards on the narrowest screens */
+  .achievementGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

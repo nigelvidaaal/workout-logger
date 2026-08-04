@@ -46,7 +46,5 @@ button {
 main {
   max-width: 900px;
   margin: 0 auto;
-  /* top padding = navbar's fixed height (60px) + the usual 2rem breathing room,
-     so page content starts below the now-out-of-flow fixed navbar, not under it */
   padding: calc(60px + 2rem) 1.5rem 2rem;
 }

@@ -115,3 +115,21 @@
   color: var(--text-muted);
   padding: 3rem 0;
 }
+
+@media (max-width: 640px) {
+  /* stack the add-workout input and button vertically */
+  .form {
+    flex-direction: column;
+  }
+
+  /* make the add button full-width when stacked */
+  .addBtn {
+    width: 100%;
+  }
+
+  /* let the workout card's info and delete button wrap if the name is long */
+  .workoutCard {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}
