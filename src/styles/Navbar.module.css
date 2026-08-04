@@ -6,11 +6,13 @@
   height: 60px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  /* sticky (not fixed) — stays pinned to the top on scroll, but still occupies
-     its normal spot in the document flow, so no extra top-padding hack is
-     needed on <main> to stop content jumping underneath it on page load */
-  position: sticky;
+  /* fixed — pinned to the top unconditionally, regardless of a given page's
+     own content/scroll height. taken out of document flow, so <main> gets
+     matching top padding (see index.css) to avoid content starting underneath it */
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
 }
 
