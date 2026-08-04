@@ -7,7 +7,6 @@ import { WorkoutDetail } from "./pages/WorkoutDetail";
 import { Dashboard } from "./pages/Dashboard";
 import { MuscleChart } from "./pages/MuscleChart";
 import { Navbar } from "./components/Navbar";
-import "./App.css";
 
 function App() {
   return (
