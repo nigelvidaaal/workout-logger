@@ -99,8 +99,6 @@ export function Dashboard() {
 
   return (
     <div className={styles.container}>
-      <h1>Dashboard</h1>
-
       {/* ─── ACHIEVEMENTS ─── */}
       <section className={styles.section}>
         <h2>🏆 Achievements</h2>

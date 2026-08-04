@@ -6,7 +6,11 @@
   height: 60px;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
-  position: relative;
+  /* sticky (not fixed) — stays pinned to the top on scroll, but still occupies
+     its normal spot in the document flow, so no extra top-padding hack is
+     needed on <main> to stop content jumping underneath it on page load */
+  position: sticky;
+  top: 0;
   z-index: 20;
 }
 
@@ -22,7 +26,7 @@
 }
 
 .brand {
-  font-size: 1.2rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--accent);                    
 }
