@@ -4,15 +4,14 @@
   justify-content: space-between;
   padding: 0 2rem;
   height: 60px;
-  background-color: #1a1a2e;
-  border-bottom: 1px solid #16213e;
+  background-color: var(--bg-secondary);   
+  border-bottom: 1px solid var(--border);
 }
 
 .brand {
   font-size: 1.2rem;
   font-weight: 600;
-  color: #e94560;
-  text-decoration: none;
+  color: var(--accent);                    
 }
 
 .navLinks {
@@ -22,38 +21,37 @@
 }
 
 .navLink {
-  color: #a8a8b3;
+  color: var(--text-secondary);            
   text-decoration: none;
   font-size: 0.95rem;
   transition: color 0.2s;
 }
 
 .navLink:hover {
-  color: #ffffff;
+  color: var(--text-primary);              
 }
 
 .active {
-  color: #ffffff;
+  color: var(--text-primary);             
   font-weight: 500;
 }
 
 .username {
-  color: #a8a8b3;
-  font-size: 0.9rem;
+  color: var(--text-secondary);            
 }
 
 .logoutBtn {
   background: transparent;
-  border: 1px solid #2a2a4a;
-  color: #a8a8b3;
+  border: 1px solid var(--border);         
+  color: var(--text-secondary);           
   padding: 0.35rem 0.8rem;
-  border-radius: 6px;
+  border-radius: var(--border-radius);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .logoutBtn:hover {
-  border-color: #e94560;
-  color: #e94560;
+  border-color: var(--accent);             
+  color: var(--accent);                    
 }

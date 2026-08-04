@@ -13,7 +13,7 @@
 }
 
 .empty {
-  color: #888;
+  color: var(--text-muted);       
   font-style: italic;
 }
 
@@ -28,9 +28,9 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: #1a1a2e;
-  border-radius: 10px;
-  border: 1px solid #2a2a4a;
+  background: var(--bg-card);      
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border); 
 }
 
 .icon {
@@ -44,7 +44,7 @@
 
 .achievementExercise {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--text-muted);       
   margin: 0;
   text-transform: capitalize;
 }
@@ -60,8 +60,8 @@
   grid-template-columns: 2fr 1fr 1.5fr;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  background: #1a1a2e;
-  border-radius: 8px;
+  background: var(--bg-card);      
+  border-radius: var(--border-radius);
   align-items: center;
 }
 
@@ -71,21 +71,21 @@
 }
 
 .prWeight {
-  color: #e94560;
+  color: var(--accent);            
   font-weight: 600;
 }
 
 .prDate {
   font-size: 0.85rem;
-  color: #888;
+  color: var(--text-muted);        
   text-align: right;
 }
 
 .prCard {
-  background: #1a1a2e;
-  border-radius: 8px;
+  background: var(--bg-card);       
+  border-radius: var(--border-radius);
   padding: 1rem;
-  border: 1px solid #2a2a4a;
+  border: 1px solid var(--border); 
 }
 
 .prCardHeader {
@@ -96,7 +96,7 @@
 }
 
 .prBest {
-  color: #e94560;
+  color: var(--accent);            
   font-weight: 600;
 }
 
@@ -108,10 +108,9 @@
 }
 
 .prCount {
-  color: #aaa;
+  color: var(--text-secondary);    
 }
 
 .prNext {
-  color: #4ade80;
-  font-weight: 500;
+  color: var(--success);          
 }

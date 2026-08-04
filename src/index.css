@@ -5,20 +5,19 @@
 }
 
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: #16213e;
-  --accent: #e94560;
-  --accent-hover: #c73652;
-  --text-primary: #ffffff;
-  --text-secondary: #a8a8b3;
-  --text-muted: #6b6b7a;
-  --border: #2a2a4a;
-  --success: #1D9E75;
-  --border-radius: 8px;
-  --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --bg-primary: #0d0d0f;      /* was #0f0f1a (navy-black) → near-black, faint cool tint */
+  --bg-secondary: #16171b;    /* was #1a1a2e (navy) → cool charcoal, one step up from bg */
+  --bg-card: #1a1b20;         /* was #16213e (blue) → cool charcoal card, sits above secondary */
+  --accent: #ff4d00;          /* was #e94560 (pink) → red-orange */
+  --accent-hover: #e04400;    /* was #c73652 → darker red-orange for hover */
+  --text-primary: #ffffff;    /* unchanged — pure white */
+  --text-secondary: #a3a3ad;  /* was #a8a8b3 → very slightly cooler grey */
+  --text-muted: #6b6b74;      /* barely changed — muted grey */
+  --border: #2a2b32;          /* was #2a2a4a (bluish) → cool neutral grey border */
+  --success: #1D9E75;         /* unchanged — green still reads fine */
+  --border-radius: 8px;       /* unchanged */
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);  /* slightly deeper for the darker bg */
 }
-
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background-color: var(--bg-primary);
