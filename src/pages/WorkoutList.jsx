@@ -109,7 +109,13 @@ export function WorkoutList() {
               >
                 {workout.name}
               </Link>
-              <span className={styles.workoutDate}>{workout.date}</span>
+              <span className={styles.workoutDate}>
+                {new Date(workout.date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
+              </span>
             </div>
             <button
               className={styles.deleteBtn}
