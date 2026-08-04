@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useState } from "react";
 import styles from "../styles/Navbar.module.css";
 
 export function Navbar() {
@@ -9,27 +10,47 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // tracks whether the mobile menu is open
+  const [isOpen, setIsOpen] = useState(false);
+
   function handleLogout() {
     // clear the session from context and localStorage
     logout();
     // send user to login page — they're no longer authenticated
     navigate("/login");
+    setIsOpen(false);
+  }
+
+  // close the menu whenever a link is tapped (so it doesn't stay open after navigating)
+  function closeMenu() {
+    setIsOpen(false);
   }
 
   return (
     <nav className={styles.navbar}>
-      {/* brand — always visible */}
-      <Link to="/" className={styles.brand}>
+      <Link to="/" className={styles.brand} onClick={closeMenu}>
         Workout Logger
       </Link>
 
-      <div className={styles.navLinks}>
+      {/* hamburger button — only visible on mobile (CSS handles that) */}
+      <button
+        className={styles.hamburger}
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label="Toggle menu"
+      >
+        ☰
+      </button>
+
+      {/* links panel — gets an 'open' class when isOpen is true */}
+      <div
+        className={`${styles.navLinks} ${isOpen ? styles.navLinksOpen : ""}`}
+      >
         {user ? (
-          // LOGGED IN — show app navigation and logout
           <>
             <NavLink
               to="/"
               end
+              onClick={closeMenu}
               className={({ isActive }) =>
                 isActive ? styles.active : styles.navLink
               }
@@ -38,6 +59,7 @@ export function Navbar() {
             </NavLink>
             <NavLink
               to="/workouts"
+              onClick={closeMenu}
               className={({ isActive }) =>
                 isActive ? styles.active : styles.navLink
               }
@@ -46,23 +68,23 @@ export function Navbar() {
             </NavLink>
             <NavLink
               to="/muscles"
+              onClick={closeMenu}
               className={({ isActive }) =>
                 isActive ? styles.active : styles.navLink
               }
             >
               Muscles
             </NavLink>
-            {/* show who's logged in */}
             <span className={styles.username}>{user.username}</span>
             <button className={styles.logoutBtn} onClick={handleLogout}>
               Logout
             </button>
           </>
         ) : (
-          // NOT LOGGED IN — show auth links only
           <>
             <NavLink
               to="/login"
+              onClick={closeMenu}
               className={({ isActive }) =>
                 isActive ? styles.active : styles.navLink
               }
@@ -71,6 +93,7 @@ export function Navbar() {
             </NavLink>
             <NavLink
               to="/register"
+              onClick={closeMenu}
               className={({ isActive }) =>
                 isActive ? styles.active : styles.navLink
               }
