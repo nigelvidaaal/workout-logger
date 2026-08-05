@@ -75,6 +75,11 @@ async function setup() {
       primary_muscles TEXT[],
       secondary_muscles TEXT[]
     );
+
+    -- nullable — existing exercises and freeform/custom-named ones stay
+    -- unlinked; only used when an exercise is explicitly tied to a catalog entry.
+    -- must come after exercise_catalog is created above, since it references it.
+    ALTER TABLE exercises ADD COLUMN IF NOT EXISTS catalog_id TEXT REFERENCES exercise_catalog(id);
   `)
 
   console.log(' Tables created succesfully')
