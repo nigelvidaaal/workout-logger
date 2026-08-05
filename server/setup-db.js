@@ -62,7 +62,19 @@ async function setup() {
       unlocked_at TIMESTAMP DEFAULT NOW(),
       FOREIGN KEY (user_id) REFERENCES users(id),
       UNIQUE (user_id, exercise_name, tier)
-    ); 
+    );
+
+    -- reference catalog, not tied to any user — seeded by seed-catalog.js from
+    -- the free-exercise-db dataset. id is that dataset's own slug (e.g.
+    -- "Alternate_Incline_Dumbbell_Curl"), used as-is as the primary key.
+    CREATE TABLE IF NOT EXISTS exercise_catalog (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      equipment TEXT,
+      category TEXT,
+      primary_muscles TEXT[],
+      secondary_muscles TEXT[]
+    );
   `)
 
   console.log(' Tables created succesfully')
