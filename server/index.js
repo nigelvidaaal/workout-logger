@@ -9,6 +9,7 @@ const exercisesRouter = require('./routes/exercises')
 const setsRouter = require('./routes/sets')
 const prRouter = require('./routes/prs')
 const achievementsRouter = require('./routes/r-achievements')
+const catalogRouter = require('./routes/catalog')
 
 const app = express()
 
@@ -27,6 +28,7 @@ app.use('/api/sets', setsRouter)
 // newly added ones, PRs and Achievements 
 app.use('/api/prs', prRouter)
 app.use('/api/achievements', achievementsRouter)
+app.use('/api/catalog', catalogRouter)
 
 
 // backend CORS 

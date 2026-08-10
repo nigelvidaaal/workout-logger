@@ -73,11 +73,11 @@ export async function deleteWorkout(token, id) {
 }
 
 // POST /api/workouts/:workoutId/exercises — add exercise to a workout
-export async function createExercise(token, workoutId, name, muscleGroup) {
+export async function createExercise(token, workoutId, name, muscleGroup, catalogId) {
   const response = await fetch(`${BASE_URL}/workouts/${workoutId}/exercises`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ name, muscle_group: muscleGroup })
+    body: JSON.stringify({ name, muscle_group: muscleGroup, catalogId })
   })
   return handleResponse(response, 'Failed to create exercise')
 }
@@ -129,6 +129,18 @@ export async function getMuscleVolume(token) {
     headers: authHeaders(token)
   })
   return handleResponse(response, 'Failed to fetch muscle volume')
+}
+
+// GET /api/catalog?q=... — typeahead search against the seeded exercise catalog
+export async function searchCatalog(token, query) {
+  // skip the round trip entirely for empty/whitespace-only input
+  if (!query.trim()) return []
+
+  const response = await fetch(
+    `${BASE_URL}/catalog?q=${encodeURIComponent(query)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to search catalog')
 }
 
 // GET /api/achievements — fetch all unlocked achievements

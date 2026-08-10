@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import styles from "../styles/WorkoutDetail.module.css";
 import confetti from "canvas-confetti";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
+import { ExerciseSearch } from "../components/ExerciseSearch";
 
 export function WorkoutDetail() {
   // workout — single object containing { id, name, date, exercises: [] }
@@ -25,6 +26,9 @@ export function WorkoutDetail() {
   const [exerciseName, setExerciseName] = useState("");
   // muscleGroup — controlled select for tagging the new exercise, feeds the anatomy chart
   const [muscleGroup, setMuscleGroup] = useState("");
+  // catalogId — set when exerciseName came from picking a real catalog match;
+  // null means a fully custom name, either typed or explicitly confirmed as custom
+  const [catalogId, setCatalogId] = useState(null);
 
   // confetti effect when hitting a PR
   const [celebration, setCelebration] = useState(null);
@@ -79,12 +83,13 @@ export function WorkoutDetail() {
     e.preventDefault();
     try {
       // create the exercise — workout.id tells the server which workout it belongs to
-      await createExercise(token, id, exerciseName, muscleGroup);
+      await createExercise(token, id, exerciseName, muscleGroup, catalogId);
       // refetch so the new exercise appears immediately
       await fetchWorkout();
       // clear the inputs
       setExerciseName("");
       setMuscleGroup("");
+      setCatalogId(null);
     } catch (err) {
       setError(err.message);
     }
@@ -194,12 +199,22 @@ export function WorkoutDetail() {
       </div>
 
       <form onSubmit={handleAddExercise} className={styles.addExerciseForm}>
-        <input
-          className={styles.input}
+        <ExerciseSearch
           value={exerciseName}
-          onChange={(e) => setExerciseName(e.target.value)}
-          placeholder="Exercise name (e.g. Bench Press)"
-          required
+          onChange={(text) => {
+            setExerciseName(text);
+            // typing invalidates whatever catalog match (if any) was previously selected
+            setCatalogId(null);
+          }}
+          onSelectCatalogItem={(item) => {
+            if (item) {
+              setExerciseName(item.name);
+              setCatalogId(item.id);
+            } else {
+              // "add as custom" — keep the typed name, explicitly confirm no catalog link
+              setCatalogId(null);
+            }
+          }}
         />
         <select
           className={styles.select}
