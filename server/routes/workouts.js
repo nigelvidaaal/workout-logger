@@ -96,6 +96,7 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
     JOIN workouts w ON e.workout_id = w.id
     JOIN exercise_catalog ec ON e.catalog_id = ec.id
     WHERE w.user_id = $1
+      AND DATE(w.date) = CURRENT_DATE
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
   
