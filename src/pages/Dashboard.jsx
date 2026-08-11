@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getAchievements, getPRs, getTiers } from "../api/workouts";
+import { AnalyticsSection } from "../components/AnalyticsSection";
 import styles from "../styles/Dashboard.module.css";
 
 export function Dashboard() {
@@ -99,9 +100,15 @@ export function Dashboard() {
 
   return (
     <div className={styles.container}>
+      {/* ─── ANALYTICS ─── */}
+      <section className={styles.section}>
+        <h2>Analytics</h2>
+        <AnalyticsSection />
+      </section>
+
       {/* ─── ACHIEVEMENTS ─── */}
       <section className={styles.section}>
-        <h2>🏆 Achievements</h2>
+        <h2>Achievements</h2>
         {achievements.length === 0 && (
           <p className={styles.empty}>No achievements yet. Go hit a PR!</p>
         )}
@@ -120,7 +127,7 @@ export function Dashboard() {
 
       {/* ─── PRs, grouped by exercise, with tier progress ─── */}
       <section className={styles.section}>
-        <h2>💪 Personal Records</h2>
+        <h2>Personal Records</h2>
         {groupedPRs.length === 0 && (
           <p className={styles.empty}>No PRs logged yet.</p>
         )}

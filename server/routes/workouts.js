@@ -3,6 +3,7 @@ const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 const { computeMuscleVolume } = require('../muscle_split')  // adjust path
+const { APP_TIMEZONE } = require('../constants/timezone')
 
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
 function groupExercisesWithSets(rows) {
@@ -91,14 +92,17 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
   const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'today'
 
-  // NOTE (timezone): w.date is a naive TIMESTAMP written via NOW(), and CURRENT_DATE
-  // is evaluated in the DB session's timezone (UTC on Neon) — neither captures the
-  // user's own local timezone, so an evening workout for anyone west of UTC can get
-  // bucketed into the wrong calendar day here. Known, not fixed in this pass.
+  // w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
+  // wall-clock (the session timezone at insert time, UTC on Neon). A single
+  // AT TIME ZONE would misinterpret that naive UTC value as if it were already
+  // APP_TIMEZONE-local — the double conversion below is required: first
+  // reinterpret as UTC (naive -> timestamptz), then convert that instant into
+  // APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
+  // NOW() is already timestamptz, so it only needs the single conversion.
   const RANGE_CLAUSES = {
-    today: "AND DATE(w.date) = CURRENT_DATE",
-    week: "AND w.date >= CURRENT_DATE - INTERVAL '7 days'",
-    month: "AND w.date >= CURRENT_DATE - INTERVAL '30 days'",
+    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
+    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
+    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
     all: '',
   }
   const dateClause = RANGE_CLAUSES[range]

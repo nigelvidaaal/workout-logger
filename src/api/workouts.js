@@ -133,6 +133,16 @@ export async function getMuscleVolume(token, range = "today") {
   return handleResponse(response, 'Failed to fetch muscle volume')
 }
 
+// GET /api/analytics/volume?range=week|month|all
+// total training volume bucketed over time — feeds the Dashboard analytics chart
+export async function getVolumeAnalytics(token, range = "week") {
+  const response = await fetch(
+    `${BASE_URL}/analytics/volume?range=${encodeURIComponent(range)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch volume analytics')
+}
+
 // GET /api/catalog?q=... — typeahead search against the seeded exercise catalog
 export async function searchCatalog(token, query) {
   // skip the round trip entirely for empty/whitespace-only input
