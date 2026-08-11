@@ -6,7 +6,7 @@ const MUSCLE_MAP = {
   triceps: "triceps",
   abdominals: "abs",
   quadriceps: "quads",
-  hamstrings: "hams",
+  hamstrings: "hamstrings",
   glutes: "glutes",
   calves: "calves",
   lats: "back",

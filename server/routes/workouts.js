@@ -144,8 +144,6 @@ router.get('/:id', requireAuth, async (req, res) => {
   res.json({ ...workout, exercises })
 })
 
-router.get
-
 // GET /api/workouts/progress/:exerciseName
 // returns max weight per session for a specific exercise name
 router.get('/progress/:exerciseName', requireAuth, async(req, res) => {

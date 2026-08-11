@@ -8,7 +8,7 @@ import styles from "../styles/MuscleChart.module.css";
 
 export function MuscleChart() {
   const [view, setView] = useState("front");
-  const [volume, setVolume] = useState([]);
+  const [volume, setVolume] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -34,11 +34,11 @@ export function MuscleChart() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
 
-  // volume is [{ muscle_group, tonnage }] for groups with logged data — turn it
-  // into a lookup, then scale every group 0..1 relative to whichever is highest
+  // volume is { group: tonnage } for groups with logged, catalog-linked data —
+  // coerce to numbers, then scale every group 0..1 relative to whichever is highest
   const tonnageByGroup = {};
-  for (const row of volume) {
-    tonnageByGroup[row.muscle_group] = Number(row.tonnage);
+  for (const [group, tonnage] of Object.entries(volume)) {
+    tonnageByGroup[group] = Number(tonnage);
   }
 
   const maxTonnage = Math.max(0, ...Object.values(tonnageByGroup));
@@ -54,10 +54,10 @@ export function MuscleChart() {
     <div className={styles.container}>
       <h1>Muscle Chart</h1>
 
-      {volume.length === 0 && (
+      {Object.keys(volume).length === 0 && (
         <p className={styles.empty}>
-          No tagged training data yet — tag an exercise with a muscle group
-          and log a set to see it here.
+          No catalog-linked exercises logged yet — pick an exercise from the
+          search when adding one, then log a set to see it here.
         </p>
       )}
 

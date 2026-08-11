@@ -73,11 +73,12 @@ export async function deleteWorkout(token, id) {
 }
 
 // POST /api/workouts/:workoutId/exercises — add exercise to a workout
-export async function createExercise(token, workoutId, name, muscleGroup, catalogId) {
+// muscle data comes exclusively from the catalog (via catalogId) — no manual muscle_group tagging
+export async function createExercise(token, workoutId, name, catalogId) {
   const response = await fetch(`${BASE_URL}/workouts/${workoutId}/exercises`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ name, muscle_group: muscleGroup, catalogId })
+    body: JSON.stringify({ name, catalogId })
   })
   return handleResponse(response, 'Failed to create exercise')
 }

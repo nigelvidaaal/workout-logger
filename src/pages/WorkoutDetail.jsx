@@ -12,7 +12,6 @@ import { useAuth } from "../context/AuthContext";
 // import { ExerciseChart } from "../components/ExerciseChart";
 import styles from "../styles/WorkoutDetail.module.css";
 import confetti from "canvas-confetti";
-import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import { ExerciseSearch } from "../components/ExerciseSearch";
 
 export function WorkoutDetail() {
@@ -24,8 +23,6 @@ export function WorkoutDetail() {
 
   // exerciseName — controlled input for adding a new exercise
   const [exerciseName, setExerciseName] = useState("");
-  // muscleGroup — controlled select for tagging the new exercise, feeds the anatomy chart
-  const [muscleGroup, setMuscleGroup] = useState("");
   // catalogId — set when exerciseName came from picking a real catalog match;
   // null means a fully custom name, either typed or explicitly confirmed as custom
   const [catalogId, setCatalogId] = useState(null);
@@ -83,12 +80,11 @@ export function WorkoutDetail() {
     e.preventDefault();
     try {
       // create the exercise — workout.id tells the server which workout it belongs to
-      await createExercise(token, id, exerciseName, muscleGroup, catalogId);
+      await createExercise(token, id, exerciseName, catalogId);
       // refetch so the new exercise appears immediately
       await fetchWorkout();
       // clear the inputs
       setExerciseName("");
-      setMuscleGroup("");
       setCatalogId(null);
     } catch (err) {
       setError(err.message);
@@ -216,26 +212,11 @@ export function WorkoutDetail() {
             }
           }}
         />
-        <select
-          className={styles.select}
-          value={muscleGroup}
-          onChange={(e) => setMuscleGroup(e.target.value)}
-          required
-        >
-          <option value="" disabled>
-            Select muscle group
-          </option>
-          {MUSCLE_GROUPS.map((group) => (
-            <option key={group.value} value={group.value}>
-              {group.label}
-            </option>
-          ))}
-        </select>
-        {/* disabled until both fields are filled — prevents submitting an untagged exercise */}
+        {/* disabled until a name is entered */}
         <button
           type="submit"
           className={styles.addBtn}
-          disabled={!exerciseName || !muscleGroup}
+          disabled={!exerciseName}
         >
           Add Exercise
         </button>
@@ -248,14 +229,7 @@ export function WorkoutDetail() {
       {workout.exercises.map((exercise) => (
         <div key={exercise.id} className={styles.exerciseCard}>
           <div className={styles.exerciseHeader}>
-            <h3 className={styles.exerciseName}>
-              {exercise.name}
-              {exercise.muscle_group && (
-                <span className={styles.muscleBadge}>
-                  {exercise.muscle_group}
-                </span>
-              )}
-            </h3>
+            <h3 className={styles.exerciseName}>{exercise.name}</h3>
             <button
               className={styles.deleteExerciseBtn}
               onClick={() => handleDeleteExercise(exercise.id)}

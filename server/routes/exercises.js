@@ -2,7 +2,6 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
-const { MUSCLE_GROUPS } = require('../constants/muscleGroups')
 
 // POST /api/workouts/:workoutId/exercises
 // adds a new exercise to a specific workout
@@ -10,17 +9,15 @@ const { MUSCLE_GROUPS } = require('../constants/muscleGroups')
 // this router will be mounted at '/api/workouts' — so the full path combines
 router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
 
-  // workoutId - workout added to, name - exercise name, muscle_group - tag used by the anatomy chart,
-  // catalogId - optional link back to exercise_catalog when the name came from a search result
+  // workoutId - workout added to, name - exercise name,
+  // catalogId - optional link back to exercise_catalog when the name came from a search result.
+  // muscle data now comes exclusively from the catalog (via catalogId) — no manual muscle_group tagging
   const { workoutId } = req.params
-  const { name, muscle_group } = req.body
+  const { name } = req.body
   // explicit default — don't depend on how pg handles a bare `undefined` bind param
   const catalogId = req.body.catalogId ?? null
 
   if (!name) return res.status(400).json({ error: 'All fields required' })
-  if (!muscle_group || !MUSCLE_GROUPS.includes(muscle_group)) {
-    return res.status(400).json({ error: 'Invalid muscle_group' })
-  }
 
   // verify the workout exists AND belongs to this user before adding to it
   // this is the authorization check — you can't add exercises to someone else's workout
@@ -34,8 +31,8 @@ router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
     // insert the exercise
     // foreign key in action: exercises.workout_id = workouts.id
     const result = await pool.query(
-      'INSERT INTO exercises (workout_id, name, muscle_group, catalog_id) VALUES ($1, $2, $3, $4) RETURNING id, name, muscle_group, catalog_id',
-      [workoutId, name, muscle_group, catalogId]
+      'INSERT INTO exercises (workout_id, name, catalog_id) VALUES ($1, $2, $3) RETURNING id, name, catalog_id',
+      [workoutId, name, catalogId]
     )
 
     // fetch and return the newly created exercise
