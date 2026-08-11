@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
+const { computeMuscleVolume } = require('../muscle_split')  // adjust path
 
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
 function groupExercisesWithSets(rows) {
@@ -86,15 +87,22 @@ router.post('/', requireAuth, async (req, res) => {
 // swallowed by the /:id route above and treated as an (invalid) workout id
 router.get('/muscle-volume', requireAuth, async (req, res) => {
   const result = await pool.query(`
-    SELECT exercises.muscle_group, SUM(sets.reps * sets.weight) AS tonnage
-    FROM sets
-    JOIN exercises ON sets.exercise_id = exercises.id
-    JOIN workouts ON exercises.workout_id = workouts.id
-    WHERE workouts.user_id = $1 AND exercises.muscle_group IS NOT NULL
-    GROUP BY exercises.muscle_group
+    SELECT
+      ec.primary_muscles,
+      ec.secondary_muscles,
+      SUM(s.weight * s.reps) AS tonnage
+    FROM sets s
+    JOIN exercises e ON s.exercise_id = e.id
+    JOIN workouts w ON e.workout_id = w.id
+    JOIN exercise_catalog ec ON e.catalog_id = ec.id
+    WHERE w.user_id = $1
+    GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
+  
+  // muscle-split.js, transform raw rows into per muscle group tonnage
+  const volume = computeMuscleVolume(result.rows)
 
-  res.json(result.rows)
+  res.json(volume)
 })
 
 // GET/:id - one workout with all its exercises and sets
@@ -135,6 +143,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   // result shape: { id, name, date, user_id, exercises: [{ id, name, sets: [] }] }
   res.json({ ...workout, exercises })
 })
+
+router.get
 
 // GET /api/workouts/progress/:exerciseName
 // returns max weight per session for a specific exercise name
