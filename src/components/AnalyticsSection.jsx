@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
-import { getVolumeAnalytics } from "../api/workouts";
+import { getVolumeAnalytics, getExerciseAnalytics } from "../api/workouts";
 import styles from "../styles/AnalyticsSection.module.css";
 
 const TIME_RANGE_OPTIONS = [
@@ -20,7 +23,7 @@ const TIME_RANGE_OPTIONS = [
 
 const CHART_TYPE_OPTIONS = [
   { value: "volume", label: "Volume" },
-  { value: "exercises", label: "Exercises", disabled: true },
+  { value: "exercises", label: "Exercises" },
   { value: "bodyweight", label: "Body Weight", disabled: true },
 ];
 
@@ -28,6 +31,13 @@ const CHART_TYPE_OPTIONS = [
 // visual consistency across the app's data-viz surfaces — not the app's --accent
 // (orange), a deliberate choice since the reference look calls for a green line
 const VOLUME_LINE_COLOR = "#33FF33";
+
+// warm/cool pair for the exercise comparison bars — warm reuses the app's actual
+// --accent token directly; cool matches the anatomy chart's "Medium" tier cyan
+// (src/utils/muscleFill.js), same reasoning as VOLUME_LINE_COLOR above: every
+// data-viz color here traces back to an already-established app color
+const WEIGHT_COLOR = "var(--accent)";
+const VOLUME_BAR_COLOR = "#00D2FF";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -39,22 +49,42 @@ function formatBucketLabel(bucket) {
   return `${MONTH_NAMES[month - 1]} ${day}`;
 }
 
+// exercise names come back as LOWER(e.name) from the query — title-case them for
+// display (matches this app's existing pattern, e.g. MuscleChart's capitalized
+// legend labels) and truncate long ones so rotated axis labels stay legible
+function formatExerciseLabel(name) {
+  const capitalized = name.replace(/\b\w/g, (c) => c.toUpperCase());
+  return capitalized.length > 14 ? `${capitalized.slice(0, 14)}…` : capitalized;
+}
+
 export function AnalyticsSection() {
   const [timeRange, setTimeRange] = useState("week");
   const [chartType, setChartType] = useState("volume");
-  const [data, setData] = useState([]);
+  const [volumeData, setVolumeData] = useState([]);
+  const [exerciseData, setExerciseData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const { token } = useAuth();
 
   useEffect(() => {
-    async function fetchVolume() {
+    async function fetchData() {
       try {
         setLoading(true);
         setError(null);
-        const rows = await getVolumeAnalytics(token, timeRange);
-        setData(rows.map((row) => ({ ...row, volume: Number(row.volume) })));
+        if (chartType === "exercises") {
+          const rows = await getExerciseAnalytics(token, timeRange);
+          setExerciseData(
+            rows.map((row) => ({
+              ...row,
+              top_weight: Number(row.top_weight),
+              total_volume: Number(row.total_volume),
+            }))
+          );
+        } else {
+          const rows = await getVolumeAnalytics(token, timeRange);
+          setVolumeData(rows.map((row) => ({ ...row, volume: Number(row.volume) })));
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -62,9 +92,9 @@ export function AnalyticsSection() {
       }
     }
 
-    fetchVolume();
+    fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange]);
+  }, [timeRange, chartType]);
 
   return (
     <div className={styles.card}>
@@ -87,11 +117,60 @@ export function AnalyticsSection() {
           <p className={styles.stateMessage}>Loading...</p>
         ) : error ? (
           <p className={styles.stateMessage}>Error: {error}</p>
-        ) : data.length === 0 ? (
+        ) : chartType === "exercises" ? (
+          exerciseData.length === 0 ? (
+            <p className={styles.stateMessage}>No sets logged in this range yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={exerciseData} margin={{ bottom: 40 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="name"
+                  tickFormatter={formatExerciseLabel}
+                  angle={-35}
+                  textAnchor="end"
+                  interval={0}
+                  height={60}
+                  tick={{ fontSize: 10, fill: "var(--text-secondary)" }}
+                />
+                <YAxis
+                  yAxisId="weight"
+                  orientation="left"
+                  tick={{ fontSize: 11, fill: WEIGHT_COLOR }}
+                />
+                <YAxis
+                  yAxisId="volume"
+                  orientation="right"
+                  tick={{ fontSize: 11, fill: VOLUME_BAR_COLOR }}
+                />
+                <Tooltip
+                  labelFormatter={formatExerciseLabel}
+                  contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                  labelStyle={{ color: "var(--text-primary)" }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-secondary)" }} />
+                <Bar
+                  yAxisId="weight"
+                  dataKey="top_weight"
+                  name="Top Weight (lbs)"
+                  fill={WEIGHT_COLOR}
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  yAxisId="volume"
+                  dataKey="total_volume"
+                  name="Total Volume (lbs)"
+                  fill={VOLUME_BAR_COLOR}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          )
+        ) : volumeData.length === 0 ? (
           <p className={styles.stateMessage}>No sets logged in this range yet.</p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <AreaChart data={data}>
+            <AreaChart data={volumeData}>
               <defs>
                 <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor={VOLUME_LINE_COLOR} stopOpacity={0.35} />

@@ -163,7 +163,7 @@ export function WorkoutDetail() {
       {celebration && (
         <div className={styles.celebrationBanner}>
           <h2>
-            🎉 New PR on {celebration.exerciseName}! {celebration.weight}kg
+            🎉 New PR on {celebration.exerciseName}! {celebration.weight} lbs
           </h2>
           {celebration.achievements.length > 0 && (
             <div>

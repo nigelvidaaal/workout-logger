@@ -143,6 +143,16 @@ export async function getVolumeAnalytics(token, range = "week") {
   return handleResponse(response, 'Failed to fetch volume analytics')
 }
 
+// GET /api/analytics/exercises?range=week|month|all
+// top 6 exercises by volume in the range — feeds the Exercise Comparison chart
+export async function getExerciseAnalytics(token, range = "week") {
+  const response = await fetch(
+    `${BASE_URL}/analytics/exercises?range=${encodeURIComponent(range)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch exercise analytics')
+}
+
 // GET /api/catalog?q=... — typeahead search against the seeded exercise catalog
 export async function searchCatalog(token, query) {
   // skip the round trip entirely for empty/whitespace-only input
