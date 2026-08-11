@@ -86,6 +86,23 @@ router.post('/', requireAuth, async (req, res) => {
 // registered BEFORE /:id — a single-segment path here would otherwise be
 // swallowed by the /:id route above and treated as an (invalid) workout id
 router.get('/muscle-volume', requireAuth, async (req, res) => {
+  // frontend sends ?range=today|week|month|all (default, and fallback for
+  // anything unrecognized, is 'today' — never silently falls through to all-time)
+  const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
+  const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'today'
+
+  // NOTE (timezone): w.date is a naive TIMESTAMP written via NOW(), and CURRENT_DATE
+  // is evaluated in the DB session's timezone (UTC on Neon) — neither captures the
+  // user's own local timezone, so an evening workout for anyone west of UTC can get
+  // bucketed into the wrong calendar day here. Known, not fixed in this pass.
+  const RANGE_CLAUSES = {
+    today: "AND DATE(w.date) = CURRENT_DATE",
+    week: "AND w.date >= CURRENT_DATE - INTERVAL '7 days'",
+    month: "AND w.date >= CURRENT_DATE - INTERVAL '30 days'",
+    all: '',
+  }
+  const dateClause = RANGE_CLAUSES[range]
+
   const result = await pool.query(`
     SELECT
       ec.primary_muscles,
@@ -96,13 +113,12 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
     JOIN workouts w ON e.workout_id = w.id
     JOIN exercise_catalog ec ON e.catalog_id = ec.id
     WHERE w.user_id = $1
-      AND DATE(w.date) = CURRENT_DATE
+      ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
   
   // muscle-split.js, transform raw rows into per muscle group tonnage
   const volume = computeMuscleVolume(result.rows)
-
   res.json(volume)
 })
 

@@ -123,12 +123,13 @@ export async function getExerciseProgress(token, exerciseName) {
   return handleResponse(response, 'Failed to fetch progress')
 }
 
-// GET /api/workouts/muscle-volume
-// total tonnage per muscle group, across all workouts — feeds the anatomy chart
-export async function getMuscleVolume(token) {
-  const response = await fetch(`${BASE_URL}/workouts/muscle-volume`, {
-    headers: authHeaders(token)
-  })
+// GET /api/workouts/muscle-volume?range=today|week|month|all
+// total tonnage per muscle group, scoped to the given time range — feeds the anatomy chart
+export async function getMuscleVolume(token, range = "today") {
+  const response = await fetch(
+    `${BASE_URL}/workouts/muscle-volume?range=${encodeURIComponent(range)}`,
+    { headers: authHeaders(token) }
+  )
   return handleResponse(response, 'Failed to fetch muscle volume')
 }
 

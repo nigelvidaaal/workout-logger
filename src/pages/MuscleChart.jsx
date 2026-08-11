@@ -6,8 +6,16 @@ import { getFill, getTierLabel } from "../utils/muscleFill";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 import styles from "../styles/MuscleChart.module.css";
 
+const RANGE_OPTIONS = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "all", label: "All Time" },
+];
+
 export function MuscleChart() {
   const [view, setView] = useState("front");
+  const [range, setRange] = useState("today");
   const [volume, setVolume] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,7 +26,8 @@ export function MuscleChart() {
     async function fetchVolume() {
       try {
         setLoading(true);
-        const data = await getMuscleVolume(token);
+        setError(null);
+        const data = await getMuscleVolume(token, range);
         setVolume(data);
       } catch (err) {
         setError(err.message);
@@ -29,10 +38,7 @@ export function MuscleChart() {
 
     fetchVolume();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  }, [range]);
 
   // volume is { group: tonnage } for groups with logged, catalog-linked data —
   // coerce to numbers, then scale every group 0..1 relative to whichever is highest
@@ -54,12 +60,19 @@ export function MuscleChart() {
     <div className={styles.container}>
       <h1>Muscle Chart</h1>
 
-      {Object.keys(volume).length === 0 && (
-        <p className={styles.empty}>
-          No catalog-linked exercises logged yet — pick an exercise from the
-          search when adding one, then log a set to see it here.
-        </p>
-      )}
+      {/* toggle rows render unconditionally — even during a refetch — so the
+          active selection stays visible instead of flickering away on every click */}
+      <div className={styles.toggleRow}>
+        {RANGE_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            className={`${styles.toggleBtn} ${range === opt.value ? styles.toggleBtnActive : ""}`}
+            onClick={() => setRange(opt.value)}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
 
       <div className={styles.toggleRow}>
         <button
@@ -76,35 +89,50 @@ export function MuscleChart() {
         </button>
       </div>
 
-      <div className={styles.layout}>
-        <div className={styles.chartWrap}>
-          <MuscleBodyChart view={view} intensityByGroup={intensityByGroup} />
-        </div>
+      {loading ? (
+        <div>Loading...</div>
+      ) : error ? (
+        <div>Error: {error}</div>
+      ) : (
+        <>
+          {Object.keys(volume).length === 0 && (
+            <p className={styles.empty}>
+              No catalog-linked exercises logged yet — pick an exercise from the
+              search when adding one, then log a set to see it here.
+            </p>
+          )}
 
-        <div className={styles.legend}>
-          {MUSCLE_GROUPS.map((group) => (
-            <div key={group.value} className={styles.legendRow}>
-              <span className={styles.legendName}>
-                <span
-                  className={styles.legendSwatch}
-                  style={{ background: getFill(group.value, intensityByGroup) }}
-                />
-                {group.label}
-              </span>
-              <span className={styles.legendTonnage}>
-                {tonnageByGroup[group.value] ? (
-                  <>
-                    {getTierLabel(group.value, intensityByGroup)} ·{" "}
-                    {tonnageByGroup[group.value].toLocaleString()} lbs
-                  </>
-                ) : (
-                  "—"
-                )}
-              </span>
+          <div className={styles.layout}>
+            <div className={styles.chartWrap}>
+              <MuscleBodyChart view={view} intensityByGroup={intensityByGroup} />
             </div>
-          ))}
-        </div>
-      </div>
+
+            <div className={styles.legend}>
+              {MUSCLE_GROUPS.map((group) => (
+                <div key={group.value} className={styles.legendRow}>
+                  <span className={styles.legendName}>
+                    <span
+                      className={styles.legendSwatch}
+                      style={{ background: getFill(group.value, intensityByGroup) }}
+                    />
+                    {group.label}
+                  </span>
+                  <span className={styles.legendTonnage}>
+                    {tonnageByGroup[group.value] ? (
+                      <>
+                        {getTierLabel(group.value, intensityByGroup)} ·{" "}
+                        {tonnageByGroup[group.value].toLocaleString()} lbs
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
