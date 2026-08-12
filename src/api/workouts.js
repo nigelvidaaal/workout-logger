@@ -218,3 +218,11 @@ export async function renameWorkout(token, id, name) {
   })
   return handleResponse(response, 'Failed to rename workout')
 }
+
+// GET /api/workouts/pr-summary - PR summary over at achievements
+export async function getPRSummary(token) {
+  const response = await fetch(`${BASE_URL}/workouts/pr-summary`, {
+    headers: authHeaders(token),
+  })
+  return handleResponse(response, 'Failed to fetch PR summary')
+}

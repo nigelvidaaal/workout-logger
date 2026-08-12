@@ -249,4 +249,59 @@ router.patch('/:id', requireAuth, async (req, res) => {
   
 })
 
+router.get('/pr-summary', requireAuth, async (req, res) => {
+  try {
+    // all prs for this user, newest first
+    const prsResult = await pool.query (
+      `SELECT exercise_name, weight, reps, achieved_at
+       FROM prs
+       WHERE user_id = $1
+       ORDER BY achieved_at DESC`,
+      [req.userId]
+    )
+
+    // all unlocked achievements this year
+    const achResult = await pool.query (
+      `SELECT exercise_name, tier
+        FROM achievements
+        WHERE user_id = $1`,
+        [req.userId]
+    )
+
+  // combine into per exercise structure 
+  const byExercise = {}
+
+    for (const pr of prsResult.rows) {
+      const name = pr.exercise_name
+      if (!byExercise[name]) {
+        byExercise[name] = { exercise_name: name, prs: [], achievements: [] }
+      }
+      // push/add the item at the end of the array
+      byExercise[name].prs.push(pr)
+    }
+
+    // add achievements — enrich each tier with name+icon from TIERS
+    for (const ach of achResult.rows) {
+      const name = ach.exercise_name
+      if (!byExercise[name]) {
+        byExercise[name] = { exercise_name: name, prs: [], achievements: [] }
+      }
+        const tierInfo = TIERS.find((t) => t.tier === ach.tier)
+        byExercise[name].achievements.push({
+          tier: ach.tier,
+          name: tierInfo.name,
+          icon: tierInfo.icon,
+      })
+    }
+    // object -> array for the frontend 
+    res.json(Object.values(byExercise))
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({error: 'Failed to fetch PR summary'})
+  }
+
+})
+  
+  
+
 module.exports = router

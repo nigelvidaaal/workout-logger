@@ -7,6 +7,7 @@ import { WorkoutDetail } from "./pages/WorkoutDetail";
 import { Dashboard } from "./pages/Dashboard";
 import { MuscleChart } from "./pages/MuscleChart";
 import { Navbar } from "./components/Navbar";
+import { PRsPage } from "./pages/PRsPage";
 
 function App() {
   return (
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <MuscleChart />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/prs"
+            element={
+              <ProtectedRoute>
+                <PRsPage />
               </ProtectedRoute>
             }
           />

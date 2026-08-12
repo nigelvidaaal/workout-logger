@@ -29,7 +29,11 @@ export function Navbar() {
   return (
     <nav className={styles.navbar}>
       <Link to="/" className={styles.brand} onClick={closeMenu}>
-        <img src="/persist_logo_trans.png" alt="Soar" className={styles.logoImg} />
+        <img
+          src="/persist_logo_trans.png"
+          alt="Soar"
+          className={styles.logoImg}
+        />
       </Link>
 
       {/* hamburger button — only visible on mobile (CSS handles that) */}
@@ -74,6 +78,15 @@ export function Navbar() {
               }
             >
               Muscles
+            </NavLink>
+            <NavLink
+              to="/prs"
+              onClick={closeMenu}
+              className={({ isActive }) =>
+                isActive ? styles.active : styles.navLink
+              }
+            >
+              PRs
             </NavLink>
             <span className={styles.username}>{user.username}</span>
             <button className={styles.logoutBtn} onClick={handleLogout}>
