@@ -35,25 +35,27 @@ const CHART_TYPE_OPTIONS = [
   { value: "bodyweight", label: "Body Weight" },
 ];
 
-// matches the anatomy chart's "High" tier green (src/utils/muscleFill.js) for
-// visual consistency across the app's data-viz surfaces — not the app's --accent
-// (orange), a deliberate choice since the reference look calls for a green line
+// colors
 const VOLUME_LINE_COLOR = "#33FF33";
-
-// warm/cool pair for the exercise comparison bars — warm reuses the app's actual
-// --accent token directly; cool matches the anatomy chart's "Medium" tier cyan
-// (src/utils/muscleFill.js), same reasoning as VOLUME_LINE_COLOR above: every
-// data-viz color here traces back to an already-established app color
 const WEIGHT_COLOR = "var(--accent)";
 const VOLUME_BAR_COLOR = "#00D2FF";
-
-// trendline reuses --accent again (literal "accent-colored trendline"); the raw
-// daily-weight dots are a genuinely new color — nothing "muted gold" exists
-// anywhere else in the app's palette to borrow instead
 const BODY_WEIGHT_TREND_COLOR = "var(--accent)";
 const BODY_WEIGHT_DOT_COLOR = "#D4A017";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 
 // formats from the raw "YYYY-MM-DD..." date-string PREFIX only — never round-trips
 // through `new Date()`, which would reinterpret the backend's already-Pacific-bucketed
@@ -64,8 +66,7 @@ function formatBucketLabel(bucket) {
 }
 
 // exercise names come back as LOWER(e.name) from the query — title-case them for
-// display (matches this app's existing pattern, e.g. MuscleChart's capitalized
-// legend labels) and truncate long ones so rotated axis labels stay legible
+// display and truncate long ones so rotated axis labels stay legible
 function formatExerciseLabel(name) {
   const capitalized = name.replace(/\b\w/g, (c) => c.toUpperCase());
   return capitalized.length > 14 ? `${capitalized.slice(0, 14)}…` : capitalized;
@@ -101,14 +102,16 @@ export function AnalyticsSection() {
               ...row,
               top_weight: Number(row.top_weight),
               total_volume: Number(row.total_volume),
-            }))
+            })),
           );
         } else if (chartType === "bodyweight") {
           const rows = await getBodyWeightAnalytics(token, timeRange);
           setBodyWeightData(rows);
         } else {
           const rows = await getVolumeAnalytics(token, timeRange);
-          setVolumeData(rows.map((row) => ({ ...row, volume: Number(row.volume) })));
+          setVolumeData(
+            rows.map((row) => ({ ...row, volume: Number(row.volume) })),
+          );
         }
       } catch (err) {
         setError(err.message);
@@ -162,7 +165,9 @@ export function AnalyticsSection() {
           <p className={styles.stateMessage}>Error: {error}</p>
         ) : chartType === "exercises" ? (
           exerciseData.length === 0 ? (
-            <p className={styles.stateMessage}>No sets logged in this range yet.</p>
+            <p className={styles.stateMessage}>
+              No sets logged in this range yet.
+            </p>
           ) : (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={exerciseData} margin={{ bottom: 40 }}>
@@ -188,10 +193,18 @@ export function AnalyticsSection() {
                 />
                 <Tooltip
                   labelFormatter={formatExerciseLabel}
-                  contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                  contentStyle={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                  }}
                   labelStyle={{ color: "var(--text-primary)" }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-secondary)" }} />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                  }}
+                />
                 <Bar
                   yAxisId="weight"
                   dataKey="top_weight"
@@ -211,7 +224,9 @@ export function AnalyticsSection() {
           )
         ) : chartType === "bodyweight" ? (
           bodyWeightData.length === 0 ? (
-            <p className={styles.stateMessage}>No weight logged in this range yet.</p>
+            <p className={styles.stateMessage}>
+              No weight logged in this range yet.
+            </p>
           ) : (
             <ResponsiveContainer width="100%" height={280}>
               <ComposedChart data={bodyWeightData}>
@@ -229,11 +244,23 @@ export function AnalyticsSection() {
                 />
                 <Tooltip
                   labelFormatter={formatBucketLabel}
-                  contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                  contentStyle={{
+                    background: "var(--bg-card)",
+                    border: "1px solid var(--border)",
+                  }}
                   labelStyle={{ color: "var(--text-primary)" }}
                 />
-                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-secondary)" }} />
-                <Scatter dataKey="weight" name="Daily Weight" fill={BODY_WEIGHT_DOT_COLOR} />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: 12,
+                    color: "var(--text-secondary)",
+                  }}
+                />
+                <Scatter
+                  dataKey="weight"
+                  name="Daily Weight"
+                  fill={BODY_WEIGHT_DOT_COLOR}
+                />
                 <Line
                   type="monotone"
                   dataKey="trend"
@@ -246,14 +273,24 @@ export function AnalyticsSection() {
             </ResponsiveContainer>
           )
         ) : volumeData.length === 0 ? (
-          <p className={styles.stateMessage}>No sets logged in this range yet.</p>
+          <p className={styles.stateMessage}>
+            No sets logged in this range yet.
+          </p>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <AreaChart data={volumeData}>
               <defs>
                 <linearGradient id="volumeGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={VOLUME_LINE_COLOR} stopOpacity={0.35} />
-                  <stop offset="95%" stopColor={VOLUME_LINE_COLOR} stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor={VOLUME_LINE_COLOR}
+                    stopOpacity={0.35}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor={VOLUME_LINE_COLOR}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -265,7 +302,10 @@ export function AnalyticsSection() {
               <YAxis tick={{ fontSize: 11, fill: "var(--text-secondary)" }} />
               <Tooltip
                 labelFormatter={formatBucketLabel}
-                contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                contentStyle={{
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border)",
+                }}
                 labelStyle={{ color: "var(--text-primary)" }}
               />
               <Area
@@ -274,6 +314,8 @@ export function AnalyticsSection() {
                 stroke={VOLUME_LINE_COLOR}
                 strokeWidth={2}
                 fill="url(#volumeGradient)"
+                dot={{ fill: "#33FF33", r: 3 }}
+                activeDot={{ r: 5 }}
               />
             </AreaChart>
           </ResponsiveContainer>
