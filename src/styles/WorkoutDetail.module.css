@@ -198,7 +198,7 @@
 }
 
 .celebrationBanner {
-  background: linear-gradient(135deg, var(--accent), #ff7a3d);
+  background: linear-gradient(135deg, var(--accent), #FA9649);
   color: white;
   padding: 1.5rem;
   border-radius: 12px;

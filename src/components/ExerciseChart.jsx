@@ -54,9 +54,9 @@ export function ExerciseChart({ exerciseName }) {
           <Line
             type="monotone"
             dataKey="maxweight"
-            stroke="#ff4d00"
+            stroke="#F9740D"
             strokeWidth={2}
-            dot={{ fill: "#ff4d00" }}
+            dot={{ fill: "#F9740D" }}
           />
         </LineChart>
       </ResponsiveContainer>

@@ -153,6 +153,26 @@ export async function getExerciseAnalytics(token, range = "week") {
   return handleResponse(response, 'Failed to fetch exercise analytics')
 }
 
+// POST /api/analytics/body-weight — upsert today's weight
+export async function logBodyWeight(token, weight) {
+  const response = await fetch(`${BASE_URL}/analytics/body-weight`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({ weight })
+  })
+  return handleResponse(response, 'Failed to log body weight')
+}
+
+// GET /api/analytics/body-weight?range=week|month|all
+// daily weights + a 7-day moving-average trendline — feeds the Body Weight chart
+export async function getBodyWeightAnalytics(token, range = "week") {
+  const response = await fetch(
+    `${BASE_URL}/analytics/body-weight?range=${encodeURIComponent(range)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch body weight analytics')
+}
+
 // GET /api/catalog?q=... — typeahead search against the seeded exercise catalog
 export async function searchCatalog(token, query) {
   // skip the round trip entirely for empty/whitespace-only input

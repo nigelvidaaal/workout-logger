@@ -4,6 +4,9 @@ import {
   Area,
   BarChart,
   Bar,
+  ComposedChart,
+  Scatter,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,7 +15,12 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useAuth } from "../context/AuthContext";
-import { getVolumeAnalytics, getExerciseAnalytics } from "../api/workouts";
+import {
+  getVolumeAnalytics,
+  getExerciseAnalytics,
+  getBodyWeightAnalytics,
+  logBodyWeight,
+} from "../api/workouts";
 import styles from "../styles/AnalyticsSection.module.css";
 
 const TIME_RANGE_OPTIONS = [
@@ -24,7 +32,7 @@ const TIME_RANGE_OPTIONS = [
 const CHART_TYPE_OPTIONS = [
   { value: "volume", label: "Volume" },
   { value: "exercises", label: "Exercises" },
-  { value: "bodyweight", label: "Body Weight", disabled: true },
+  { value: "bodyweight", label: "Body Weight" },
 ];
 
 // matches the anatomy chart's "High" tier green (src/utils/muscleFill.js) for
@@ -38,6 +46,12 @@ const VOLUME_LINE_COLOR = "#33FF33";
 // data-viz color here traces back to an already-established app color
 const WEIGHT_COLOR = "var(--accent)";
 const VOLUME_BAR_COLOR = "#00D2FF";
+
+// trendline reuses --accent again (literal "accent-colored trendline"); the raw
+// daily-weight dots are a genuinely new color — nothing "muted gold" exists
+// anywhere else in the app's palette to borrow instead
+const BODY_WEIGHT_TREND_COLOR = "var(--accent)";
+const BODY_WEIGHT_DOT_COLOR = "#D4A017";
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -62,13 +76,21 @@ export function AnalyticsSection() {
   const [chartType, setChartType] = useState("volume");
   const [volumeData, setVolumeData] = useState([]);
   const [exerciseData, setExerciseData] = useState([]);
+  const [bodyWeightData, setBodyWeightData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [weightInput, setWeightInput] = useState("");
+  const [logging, setLogging] = useState(false);
+  // bumped after a successful log to retrigger the effect below — keeping the
+  // fetch itself declared inside the effect (rather than called in from an
+  // event handler) is what keeps react-hooks/set-state-in-effect happy here
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { token } = useAuth();
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchChartData() {
       try {
         setLoading(true);
         setError(null);
@@ -81,6 +103,9 @@ export function AnalyticsSection() {
               total_volume: Number(row.total_volume),
             }))
           );
+        } else if (chartType === "bodyweight") {
+          const rows = await getBodyWeightAnalytics(token, timeRange);
+          setBodyWeightData(rows);
         } else {
           const rows = await getVolumeAnalytics(token, timeRange);
           setVolumeData(rows.map((row) => ({ ...row, volume: Number(row.volume) })));
@@ -92,9 +117,27 @@ export function AnalyticsSection() {
       }
     }
 
-    fetchData();
+    fetchChartData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange, chartType]);
+  }, [timeRange, chartType, refreshKey]);
+
+  async function handleLogWeight(e) {
+    e.preventDefault();
+    const value = Number(weightInput);
+    if (!Number.isFinite(value) || value <= 0) return;
+
+    try {
+      setLogging(true);
+      await logBodyWeight(token, value);
+      setWeightInput("");
+      // triggers the effect above to refetch, so the chart updates immediately
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLogging(false);
+    }
+  }
 
   return (
     <div className={styles.card}>
@@ -166,6 +209,42 @@ export function AnalyticsSection() {
               </BarChart>
             </ResponsiveContainer>
           )
+        ) : chartType === "bodyweight" ? (
+          bodyWeightData.length === 0 ? (
+            <p className={styles.stateMessage}>No weight logged in this range yet.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={bodyWeightData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={formatBucketLabel}
+                  tick={{ fontSize: 11, fill: "var(--text-secondary)" }}
+                />
+                {/* explicit domain so the axis frames the actual weight range instead
+                    of anchoring at zero, which would flatten out day-to-day variation */}
+                <YAxis
+                  domain={["dataMin - 2", "dataMax + 2"]}
+                  tick={{ fontSize: 11, fill: "var(--text-secondary)" }}
+                />
+                <Tooltip
+                  labelFormatter={formatBucketLabel}
+                  contentStyle={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+                  labelStyle={{ color: "var(--text-primary)" }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-secondary)" }} />
+                <Scatter dataKey="weight" name="Daily Weight" fill={BODY_WEIGHT_DOT_COLOR} />
+                <Line
+                  type="monotone"
+                  dataKey="trend"
+                  name="7-Day Trendline"
+                  stroke={BODY_WEIGHT_TREND_COLOR}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )
         ) : volumeData.length === 0 ? (
           <p className={styles.stateMessage}>No sets logged in this range yet.</p>
         ) : (
@@ -200,6 +279,27 @@ export function AnalyticsSection() {
           </ResponsiveContainer>
         )}
       </div>
+
+      {chartType === "bodyweight" && (
+        <form className={styles.logForm} onSubmit={handleLogWeight}>
+          <input
+            className={styles.logInput}
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="Weight (lbs)"
+            value={weightInput}
+            onChange={(e) => setWeightInput(e.target.value)}
+          />
+          <button
+            type="submit"
+            className={styles.logBtn}
+            disabled={logging || !(Number(weightInput) > 0)}
+          >
+            {logging ? "Logging..." : "Log"}
+          </button>
+        </form>
+      )}
 
       <div className={styles.toggleRow}>
         {CHART_TYPE_OPTIONS.map((opt) => (

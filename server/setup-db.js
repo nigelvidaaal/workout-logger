@@ -80,6 +80,14 @@ async function setup() {
     -- unlinked; only used when an exercise is explicitly tied to a catalog entry.
     -- must come after exercise_catalog is created above, since it references it.
     ALTER TABLE exercises ADD COLUMN IF NOT EXISTS catalog_id TEXT REFERENCES exercise_catalog(id);
+
+    CREATE TABLE IF NOT EXISTS body_weight (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      weight REAL NOT NULL,
+      date DATE NOT NULL,
+      UNIQUE (user_id, date)
+    );
   `)
 
   console.log(' Tables created succesfully')

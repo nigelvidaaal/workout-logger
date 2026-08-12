@@ -9,8 +9,8 @@
   --bg-primary: #0a0a0a;
   --bg-secondary: #121212;    /* nav bar / secondary opaque surface, one step up from canvas */
   --bg-card: #1f1f1f;         /* primary container panels — solid charcoal grey */
-  --accent: #ff4d00;          /* saturated red-orange — PR badges, streak icons, key indicators */
-  --accent-hover: #e04400;
+  --accent: #F9740D;          /* matches the logo's exact orange — PR badges, streak icons, key indicators */
+  --accent-hover: #DB660D;
   --text-primary: #ffffff;
   --text-secondary: #aaaaaa;  /* metadata, captions, non-selected items */
   --text-muted: #707070;

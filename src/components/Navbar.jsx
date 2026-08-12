@@ -29,7 +29,7 @@ export function Navbar() {
   return (
     <nav className={styles.navbar}>
       <Link to="/" className={styles.brand} onClick={closeMenu}>
-        Soar
+        <img src="/persist_logo_trans.png" alt="Soar" className={styles.logoImg} />
       </Link>
 
       {/* hamburger button — only visible on mobile (CSS handles that) */}

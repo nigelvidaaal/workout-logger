@@ -48,6 +48,50 @@
   margin-bottom: 1.5rem;
 }
 
+.logForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.logInput {
+  flex: 1;
+  max-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.logInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.logBtn {
+  background: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.5rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.logBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.logBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .stateMessage {
   display: flex;
   align-items: center;
