@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   getWorkout,
   deleteWorkout,
+  renameWorkout,
   createExercise,
   deleteExercise,
   createSet,
@@ -26,6 +27,10 @@ export function WorkoutDetail() {
   // catalogId — set when exerciseName came from picking a real catalog match;
   // null means a fully custom name, either typed or explicitly confirmed as custom
   const [catalogId, setCatalogId] = useState(null);
+
+  // isEditing — toggles the workout name between display (<h1>) and edit (input) mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState("");
 
   // confetti effect when hitting a PR
   const [celebration, setCelebration] = useState(null);
@@ -71,6 +76,29 @@ export function WorkoutDetail() {
       // workout is gone — nothing left to show on this page
       // navigate back to the list
       navigate("/workouts");
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function handleStartEdit() {
+    setEditedName(workout.name);
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    // no need to reset editedName — it's re-seeded from workout.name next time
+    setIsEditing(false);
+  }
+
+  async function handleSaveRename() {
+    try {
+      await renameWorkout(token, id, editedName);
+      // refetch rather than merge the PATCH response locally — same pattern as
+      // every other mutation in this file, and the response has no `exercises`
+      // field anyway so a manual merge would still need this refetch
+      await fetchWorkout();
+      setIsEditing(false);
     } catch (err) {
       setError(err.message);
     }
@@ -183,8 +211,50 @@ export function WorkoutDetail() {
 
       <div className={styles.header}>
         <div className={styles.headerInfo}>
-          <h1>{workout.name}</h1>
-          <p>{workout.date}</p>
+          {isEditing ? (
+            <div className={styles.renameRow}>
+              <input
+                className={styles.renameInput}
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                autoFocus
+              />
+              <button
+                type="button"
+                className={styles.addBtn}
+                onClick={handleSaveRename}
+                disabled={!editedName.trim()}
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={handleCancelEdit}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className={styles.nameRow}>
+              <h1>{workout.name}</h1>
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={handleStartEdit}
+                aria-label="Rename workout"
+              >
+                ✎
+              </button>
+            </div>
+          )}
+          <p>
+            {new Date(workout.date).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+            })}
+          </p>
         </div>
         <button
           className={styles.deleteWorkoutBtn}

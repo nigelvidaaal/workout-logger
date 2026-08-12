@@ -223,4 +223,30 @@ router.delete('/:id', requireAuth, async(req, res) => {
   res.json({ message: 'Workout deleted' })
 })
 
+router.patch('/:id', requireAuth, async (req, res) => {
+  const { id } = req.params
+  const { name } = req.body
+  if (!name) return res.status(400).json({error: 'Name required'})
+
+  try { 
+    // ownership check — verify this workout belongs to the user
+    const workoutResult = await pool.query('SELECT * FROM workouts WHERE id = $1', [id])
+    const workout = workoutResult.rows[0]
+
+    if (!workout) return res.status(404).json({error: 'Workout not found'})
+    if (workout.user_id !== req.userId) return res.status(403).json({error: 'Forbidden'})
+    
+    // update the name, return the updated row
+    const result = await pool.query(
+      'UPDATE workouts SET name = $1 WHERE id = $2 RETURNING *',
+      [name, id]
+    )
+    res.json(result.rows[0])
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({error: 'Failed to rename workout'})
+  }
+  
+})
+
 module.exports = router

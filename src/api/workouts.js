@@ -208,3 +208,13 @@ export async function getTiers(token) {
   })
   return handleResponse(response, 'Failed to fetch tiers')
 }
+
+// GET /api/workouts - rename a workout 
+export async function renameWorkout(token, id, name) {
+  const response = await fetch(`${BASE_URL}/workouts/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ name })
+  })
+  return handleResponse(response, 'Failed to rename workout')
+}
