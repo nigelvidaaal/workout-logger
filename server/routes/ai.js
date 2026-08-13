@@ -4,7 +4,7 @@ const requireAuth = require('../middleware/auth')
 
 // POST /api/chat - AI helper 
 // STUBBED: returns a mock response later, this where AI call goes  
-router.get('/chat', requireAuth, async (req, res) => {
+router.post('/chat', requireAuth, async (req, res) => {
   const { message } = req.body
 
   if (!message) return res.status(400).json.error({ error: 'Message required' })
