@@ -59,6 +59,7 @@ export function AIHelper() {
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={isOpen ? "Close AI helper" : "Open AI helper"}
       >
+        {/* AI floating chat head pfp */}
         {isOpen ? (
           "×"
         ) : (
@@ -74,7 +75,7 @@ export function AIHelper() {
         createPortal(
           <div className={styles.panel}>
             <div className={styles.header}>
-              <h3 className={styles.title}>AI Helper</h3>
+              <h3 className={styles.title}>Persisting Perry</h3>
               <button
                 type="button"
                 className={styles.closeBtn}
@@ -88,7 +89,7 @@ export function AIHelper() {
             <div className={styles.messageList}>
               {messages.length === 0 && (
                 <p className={styles.emptyState}>
-                  Ask me anything about training!
+                  Ask Persisting Perry anything about training!
                 </p>
               )}
 
@@ -96,7 +97,9 @@ export function AIHelper() {
                 <div
                   key={i}
                   className={`${styles.bubble} ${
-                    m.role === "user" ? styles.userBubble : styles.assistantBubble
+                    m.role === "user"
+                      ? styles.userBubble
+                      : styles.assistantBubble
                   }`}
                 >
                   {m.text}
