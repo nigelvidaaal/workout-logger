@@ -59,7 +59,15 @@ export function AIHelper() {
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={isOpen ? "Close AI helper" : "Open AI helper"}
       >
-        {isOpen ? "×" : "💬"}
+        {isOpen ? (
+          "×"
+        ) : (
+          <img
+            src="/ai_logo_trans.png"
+            alt="AI helper"
+            className={styles.logoImg}
+          />
+        )}
       </button>
 
       {isOpen &&
