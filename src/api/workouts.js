@@ -226,3 +226,14 @@ export async function getPRSummary(token) {
   })
   return handleResponse(response, 'Failed to fetch PR summary')
 }
+
+// POST /api/chat - AI chat helper 
+export async function sendAIMessage(token, message) {
+  const response = await fetch(`${BASE_URL}/api/chat`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({message})
+  })
+
+  return handleResponse(response, 'AI request failed')
+}
