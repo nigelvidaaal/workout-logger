@@ -229,7 +229,7 @@ export async function getPRSummary(token) {
 
 // POST /api/chat - AI chat helper 
 export async function sendAIMessage(token, message) {
-  const response = await fetch(`${BASE_URL}/api/chat`, {
+  const response = await fetch(`${BASE_URL}/ai/chat`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({message})

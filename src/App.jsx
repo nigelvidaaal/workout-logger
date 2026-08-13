@@ -8,12 +8,19 @@ import { Dashboard } from "./pages/Dashboard";
 import { MuscleChart } from "./pages/MuscleChart";
 import { Navbar } from "./components/Navbar";
 import { PRsPage } from "./pages/PRsPage";
+import { AIHelper } from "./components/AIHelper";
+import { useAuth } from "./context/AuthContext";
 
 function App() {
+  // AIHelper floats globally, but only once someone's actually logged in —
+  // every route it would help with is behind ProtectedRoute anyway
+  const { user } = useAuth();
+
   return (
     <>
       {/* Navbar renders on every page regardless of route */}
       <Navbar />
+      {user && <AIHelper />}
       <main>
         <Routes>
           {/* public routes — anyone can access these */}

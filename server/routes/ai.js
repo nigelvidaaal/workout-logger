@@ -7,7 +7,7 @@ const requireAuth = require('../middleware/auth')
 router.post('/chat', requireAuth, async (req, res) => {
   const { message } = req.body
 
-  if (!message) return res.status(400).json.error({ error: 'Message required' })
+  if (!message) return res.status(400).json({ error: 'Message required' })
 
     try {
       // later replace 
@@ -19,7 +19,7 @@ router.post('/chat', requireAuth, async (req, res) => {
       res.json({ reply })
     } catch (err){
       console.error(err)
-      res.status(500).json.error({ error: 'AI request failed' })
+      res.status(500).json({ error: 'AI request failed' })
     }
 })
 
