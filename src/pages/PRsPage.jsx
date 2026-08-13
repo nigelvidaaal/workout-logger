@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getPRSummary } from "../api/workouts";
+import { ExerciseModal } from "../components/ExerciseModal";
 import styles from "../styles/PRsPage.module.css";
 
 export function PRsPage() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [selectedExercise, setSelectedExercise] = useState(null);
   const { token } = useAuth();
 
   useEffect(() => {
@@ -32,12 +34,16 @@ export function PRsPage() {
       <h1>Personal Records</h1>
 
       {exercises.length === 0 && (
-        <p className={styles.empty}>No PRs yet. Go hit one!</p>
+        <p className={styles.empty}>No PRs yet. Let's go hit one!</p>
       )}
 
       <div className={styles.grid}>
         {exercises.map((ex) => (
-          <div key={ex.exercise_name} className={styles.card}>
+          <div
+            key={ex.exercise_name}
+            className={styles.card}
+            onClick={() => setSelectedExercise(ex)}
+          >
             <h3 className={styles.cardName}>{ex.exercise_name}</h3>
 
             {/* preview: top badge icon + counts */}
@@ -55,6 +61,12 @@ export function PRsPage() {
           </div>
         ))}
       </div>
+      {selectedExercise && (
+        <ExerciseModal
+          exercise={selectedExercise}
+          onClose={() => setSelectedExercise(null)}
+        />
+      )}
     </div>
   );
 }

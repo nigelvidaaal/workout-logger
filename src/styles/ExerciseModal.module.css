@@ -1,0 +1,146 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.panel {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 1.75rem;
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.closeBtn {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0.25rem;
+  transition: color 0.15s;
+}
+
+.closeBtn:hover {
+  color: var(--text-primary);
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin-bottom: 1.25rem;
+  padding-right: 1.5rem; /* clears the close button */
+}
+
+.section {
+  margin-bottom: 1.5rem;
+}
+
+.section:last-child {
+  margin-bottom: 0;
+}
+
+.section h3 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.badgeIcon {
+  font-size: 1rem;
+}
+
+.prRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.prRow:last-child {
+  border-bottom: none;
+}
+
+/* weight x reps is the first, unclassed span inside each row — highlight it
+   as the "hero" value, matching how PR weights read elsewhere in the app */
+.prRow > span:first-child {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.prDate {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* bottom sheet on mobile instead of a centered dialog */
+@media (max-width: 640px) {
+  .backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .panel {
+    max-width: 100%;
+    max-height: 80vh;
+    border-radius: 16px 16px 0 0;
+    animation: slideUp 0.15s ease-out;
+  }
+}
