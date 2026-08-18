@@ -1,5 +1,5 @@
 import Body from "react-muscle-highlighter";
-import { buildMuscleHighlighterData } from "../utils/buildMuscleHighlighterData";
+import { buildMuscleHighlighterData } from "../utils/muscleHighlighterData";
 import styles from "../styles/MuscleBodyChart.module.css";
 
 // Renders the actual anatomical body diagram. react-muscle-highlighter's
