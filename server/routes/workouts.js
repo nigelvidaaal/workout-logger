@@ -142,10 +142,15 @@ router.get('/pr-summary', requireAuth, async (req, res) => {
     )
 
     // all unlocked achievements this year
+    // ORDER BY tier ASC matters: PRsPage.jsx picks the LAST entry in each
+    // exercise's achievements array as the "top badge" preview icon, assuming
+    // it's the highest tier. Without an explicit order, Postgres doesn't
+    // guarantee row order at all — this makes that assumption actually true.
     const achResult = await pool.query (
       `SELECT exercise_name, tier
         FROM achievements
-        WHERE user_id = $1`,
+        WHERE user_id = $1
+        ORDER BY tier ASC`,
         [req.userId]
     )
 

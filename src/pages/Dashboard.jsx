@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // NEW — lets us send the user to /prs on click
 import { useAuth } from "../context/AuthContext";
 import { getAchievements, getPRs, getTiers } from "../api/workouts";
 import { AnalyticsSection } from "../components/AnalyticsSection";
@@ -13,6 +14,7 @@ export function Dashboard() {
   const [error, setError] = useState(null);
 
   const { token } = useAuth();
+  const navigate = useNavigate(); // NEW
 
   async function fetchDashboard() {
     try {
@@ -114,7 +116,16 @@ export function Dashboard() {
         )}
         <div className={styles.achievementGrid}>
           {achievements.map((a) => (
-            <div key={a.id} className={styles.achievementCard}>
+            <div
+              key={a.id}
+              className={styles.achievementCard}
+              // navigate to "/prs", passing this achievement's exercise
+              // name along so PRsPage knows which exercise card to auto-open.
+              onClick={() => {
+                // "unless navigate() was called WITH a state object"
+                navigate("/prs", { state: { exerciseName: a.exerciseName } });
+              }}
+            >
               <span className={styles.icon}>{a.icon}</span>
               <div>
                 <p className={styles.achievementName}>{a.name}</p>

@@ -18,9 +18,13 @@
 }
 
 .achievementGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  display: flex;
   gap: 1rem;
+  overflow-x: auto;
+  /* room for the scrollbar so it doesn't sit flush against the cards */
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
 }
 
 .achievementCard {
@@ -28,9 +32,20 @@
   align-items: center;
   gap: 0.75rem;
   padding: 1rem;
-  background: var(--bg-card);      
+  background: var(--bg-card);
   border-radius: var(--border-radius);
-  border: 1px solid var(--border); 
+  border: 1px solid var(--border);
+  /* fixed basis so cards keep their width in a flex row instead of
+     stretching/shrinking to fill the line the way grid items would */
+  flex: 0 0 200px;
+  scroll-snap-align: start;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.achievementCard:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
 }
 
 .icon {
@@ -55,30 +70,9 @@
   gap: 0.5rem;
 }
 
-.prRow {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1.5fr;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--bg-card);      
-  border-radius: var(--border-radius);
-  align-items: center;
-}
-
 .prExercise {
   font-weight: 600;
   text-transform: capitalize;
-}
-
-.prWeight {
-  color: var(--accent);            
-  font-weight: 600;
-}
-
-.prDate {
-  font-size: 0.85rem;
-  color: var(--text-muted);        
-  text-align: right;
 }
 
 .prCard {
@@ -120,20 +114,10 @@
     padding: 1.5rem 1rem;
   }
 
-  /* the 3-column PR row → single stacked column */
-  .prRow {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
-
-  /* date was right-aligned for the row layout — reads wrong when stacked */
-  .prDate {
-    text-align: left;
-  }
-
-  /* one clean column of achievement cards on the narrowest screens */
-  .achievementGrid {
-    grid-template-columns: 1fr;
+  /* narrower cards on small screens so part of the next one peeks into
+     view — a visual hint that the row scrolls */
+  .achievementCard {
+    flex-basis: 170px;
   }
 }
 
