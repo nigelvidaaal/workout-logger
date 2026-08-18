@@ -1,0 +1,11 @@
+/* <Body> renders a fixed-size SVG (200x400 * scale). 
+  This stretches it to fill whatever container */
+.wrap {
+  width: 100%;
+}
+
+.wrap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
