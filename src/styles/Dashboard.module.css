@@ -64,6 +64,62 @@
   text-transform: capitalize;
 }
 
+/* Muscle Balance boxes — two side-by-side groups, wrapping to stacked on
+   narrow screens since there's no scroll affordance here like the achievements
+   row has */
+.balanceRow {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.balanceGroup {
+  flex: 1 1 220px;
+}
+
+.balanceLabel {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.balanceBoxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.balanceBox {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border);
+}
+
+/* left border color is the only thing distinguishing the two groups — reuses
+   the same green/yellow the muscle chart's own tiers already use, so the
+   color vocabulary stays consistent across the app */
+.balanceBoxHigh {
+  border-left: 3px solid #33ff33;
+}
+
+.balanceBoxLow {
+  border-left: 3px solid #ffd700;
+}
+
+.balanceBoxName {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.balanceBoxTonnage {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .prList {
   display: flex;
   flex-direction: column;

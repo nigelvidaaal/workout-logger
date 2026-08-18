@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // NEW — lets us send the user to /prs on click
 import { useAuth } from "../context/AuthContext";
-import { getAchievements, getPRs, getTiers } from "../api/workouts";
+import { getAchievements, getPRs, getTiers, getMuscleVolume } from "../api/workouts";
 import { AnalyticsSection } from "../components/AnalyticsSection";
+import { buildMuscleBalance } from "../utils/muscleBalance"; // NEW — most-trained/needs-work split
 import styles from "../styles/Dashboard.module.css";
 
 export function Dashboard() {
@@ -10,6 +11,7 @@ export function Dashboard() {
   const [achievements, setAchievements] = useState([]);
   const [prs, setPrs] = useState([]);
   const [tiers, setTiers] = useState([]); // NEW
+  const [muscleVolume, setMuscleVolume] = useState({}); // NEW — feeds Muscle Balance boxes below
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -20,14 +22,18 @@ export function Dashboard() {
     try {
       setLoading(true);
       // fire both requests in parallel
-      const [achievementsData, prsData, tiersData] = await Promise.all([
+      // "week" here matches the recent, actionable framing of the Muscle
+      // Balance boxes — swap for "month" if a week reads too sparse for you
+      const [achievementsData, prsData, tiersData, muscleVolumeData] = await Promise.all([
         getAchievements(token),
         getPRs(token),
         getTiers(token),
+        getMuscleVolume(token, "week"),
       ]);
       setAchievements(achievementsData);
       setPrs(prsData);
       setTiers(tiersData);
+      setMuscleVolume(muscleVolumeData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -99,6 +105,8 @@ export function Dashboard() {
 
   // transform the raw PR list into grouped cards — done once per render, here
   const groupedPRs = groupPRsByExercise(prs);
+  // NEW — same idea, but for the Muscle Balance boxes below
+  const muscleBalance = buildMuscleBalance(muscleVolume);
 
   return (
     <div className={styles.container}>
@@ -132,6 +140,44 @@ export function Dashboard() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ─── MUSCLE BALANCE — quick outliers, no need to open the full chart ─── */}
+      <section className={styles.section}>
+        <h2>Muscle Balance</h2>
+        <div className={styles.balanceRow}>
+          <div className={styles.balanceGroup}>
+            <h3 className={styles.balanceLabel}>Most Trained</h3>
+            <div className={styles.balanceBoxes}>
+              {muscleBalance.mostTrained.length === 0 && (
+                <p className={styles.empty}>Nothing logged this week yet.</p>
+              )}
+              {muscleBalance.mostTrained.map((m) => (
+                <div key={m.value} className={`${styles.balanceBox} ${styles.balanceBoxHigh}`}>
+                  <span className={styles.balanceBoxName}>{m.label}</span>
+                  <span className={styles.balanceBoxTonnage}>
+                    {m.tonnage.toLocaleString()} lbs
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.balanceGroup}>
+            <h3 className={styles.balanceLabel}>Needs Attention</h3>
+            <div className={styles.balanceBoxes}>
+              {muscleBalance.needsWork.map((m) => (
+                <div key={m.value} className={`${styles.balanceBox} ${styles.balanceBoxLow}`}>
+                  <span className={styles.balanceBoxName}>{m.label}</span>
+                  <span className={styles.balanceBoxTonnage}>
+                    {/* 0 tonnage reads better as "not logged" than "0 lbs" */}
+                    {m.tonnage > 0 ? `${m.tonnage.toLocaleString()} lbs` : "Not logged"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
