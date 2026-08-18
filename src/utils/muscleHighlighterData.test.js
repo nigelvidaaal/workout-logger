@@ -1,4 +1,4 @@
-import { buildMuscleHighlighterData } from './buildMuscleHighlighterData';
+import { buildMuscleHighlighterData } from './muscleHighlighterData';
 
 test('tiers chest high, back medium, biceps low, and skips zero-volume groups', () => {
   const result = buildMuscleHighlighterData({

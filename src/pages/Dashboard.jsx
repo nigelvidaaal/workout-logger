@@ -119,11 +119,10 @@ export function Dashboard() {
             <div
               key={a.id}
               className={styles.achievementCard}
-              // navigate to "/prs", passing this achievement's exercise
-              // name along so PRsPage knows which exercise card to auto-open.
+              // navigate to "/prs", passing this achievement's exercise name
+              // along so PRsPage knows which exercise card to auto-open.
               onClick={() => {
-                // "unless navigate() was called WITH a state object"
-                navigate("/prs", { state: { exerciseName: a.exerciseName } });
+                navigate("/prs", { state: { exerciseName: a.exercise_name } });
               }}
             >
               <span className={styles.icon}>{a.icon}</span>

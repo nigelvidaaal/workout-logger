@@ -28,33 +28,29 @@ export function PRsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // NEW — once `exercises` has loaded AND we arrived here via an achievement
-  // click (i.e. navigate() was called with a state object), auto-open that
-  // exercise's modal — same end result as the user clicking its card by hand.
-  //
-  // This has to be its OWN effect, separate from the fetch above: the fetch
-  // effect runs once on mount, before `exercises` has any data yet — there'd
-  // be nothing to search through if this logic lived there too. This effect
-  // re-runs whenever `exercises` changes, so once the fetch finishes and
-  // `exercises` actually has rows in it, this gets its turn to look through them.
   useEffect(() => {
-    // TODO 1: if there's nothing to look for then basically return undefined
-
-    // Use whatever key name you picked in Dashboard.jsx's TODO — they have to
-    // match exactly, since this is just reading back the object you built there.
+    // bail out if there's nothing to look for — location.state is undefined
+    // unless navigate() was called WITH a state object (typing the URL,
+    // clicking "PRs" in the navbar both leave it undefined).
     if (!location.state?.exerciseName) {
       return;
     }
 
-    // TODO 2: find the matching exercise in the array that's already loaded.
-    // compare case insentively, get toLowerCase() both sides as instructed
-    const match = exercises.find((ex) => {
-      ex.name.toLowerCase() === location.state.exerciseName.toLowerCase();
-    });
+    // find the matching exercise in the array that's already loaded, compared
+    // case-insensitively — the achievement's exercise name and this list's
+    // exercise name
+    const match = exercises.find(
+      (ex) =>
+        ex.exercise_name.toLowerCase() ===
+        location.state.exerciseName.toLowerCase(),
+    );
 
-    // TODO 3:  if match found then open up the modal
+    // if nothing matched (exercises hasn't finished loading yet on this
+    // particular render, or something genuinely doesn't exist), do nothing —
+    // this effect runs again once `exercises` updates, per the deps below.
     if (match) {
-      ExerciseModal(match);
+      // eslint-disable-next-line
+      setSelectedExercise(match);
     }
   }, [exercises, location.state]);
 
