@@ -1,0 +1,79 @@
+/* mobile-only — hidden entirely on desktop, where the Sidebar covers this
+   job instead. */
+.bottomNav {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .bottomNav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* more room between icons and around the edges — was feeling cramped
+       at 0.35rem gap / 0.5rem 0.75rem padding */
+    gap: 0.85rem;
+    /* floating pill — fixed but with real breathing room on every side,
+       instead of a bar flush against the screen edges */
+    position: fixed;
+    left: 50%;
+    bottom: 1rem;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    z-index: 20;
+  }
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* generous tap target — the icon itself is small, this keeps the whole
+     button comfortably thumb-sized */
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: color 0.15s, background 0.15s;
+}
+
+.link:hover {
+  color: var(--text-primary);
+}
+
+.active {
+  color: var(--accent);
+  background: var(--bg-card);
+}
+
+/* the AI button — the one item here that isn't page navigation, so it
+   keeps the same "filled orange circle" look the old floating chat-head
+   button had, always on (not just on hover/active like the others) */
+.aiLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  transition: background 0.15s;
+}
+
+.aiLink:hover {
+  background: var(--accent-hover);
+}
+
+.aiLinkActive {
+  background: var(--accent-hover);
+}
+
+.aiIcon {
+  max-width: 100px;
+  height: 35px;
+  object-fit: contain;
+}

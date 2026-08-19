@@ -48,6 +48,31 @@
   transform: translateY(-2px);
 }
 
+/* trailing "More →" card — same footprint as an achievement card so it
+   scrolls/snaps identically, styled as a clear call-to-action rather than
+   a card so it doesn't get mistaken for another achievement */
+.moreCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  background: transparent;
+  border-radius: var(--border-radius);
+  border: 1px dashed var(--border);
+  flex: 0 0 200px;
+  scroll-snap-align: start;
+  color: var(--text-secondary);
+  font-weight: 500;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.moreCard:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .icon {
   font-size: 2rem;
 }
@@ -172,7 +197,8 @@
 
   /* narrower cards on small screens so part of the next one peeks into
      view — a visual hint that the row scrolls */
-  .achievementCard {
+  .achievementCard,
+  .moreCard {
     flex-basis: 170px;
   }
 }

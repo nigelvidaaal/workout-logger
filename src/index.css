@@ -69,3 +69,11 @@ main {
   margin: 0 auto;
   padding: 2rem 1.5rem;
 }
+
+/* mobile now has a floating BottomNav pill near the bottom edge — without
+   this, the last bit of every page's content would sit underneath it */
+@media (max-width: 640px) {
+  main {
+    padding-bottom: 6rem;
+  }
+}

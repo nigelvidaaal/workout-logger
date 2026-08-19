@@ -33,10 +33,13 @@ function renderBoldSegments(line) {
   );
 }
 
-export function AIHelper() {
+// isOpen/onClose now come from App.jsx instead of local state — the button
+// that used to float bottom-right and toggle this itself has moved into the
+// top Navbar (the "AI Persisting Perry" icon), so this component and Navbar
+// need to share one open/closed value rather than each tracking their own.
+export function AIHelper({ isOpen, onClose }) {
   const { token } = useAuth();
 
-  const [isOpen, setIsOpen] = useState(false);
   // array of { role, text }
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -80,96 +83,73 @@ export function AIHelper() {
     }
   }
 
-  return (
-    <>
-      <button
-        type="button"
-        className={styles.floatingBtn}
-        onClick={() => setIsOpen((prev) => !prev)}
-        aria-label={isOpen ? "Close AI helper" : "Open AI helper"}
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className={styles.panel}>
+      <div className={styles.header}>
+        <h3 className={styles.title}>Persisting Perry</h3>
+        <button
+          type="button"
+          className={styles.closeBtn}
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className={styles.messageList}>
+        {messages.length === 0 && (
+          <p className={styles.emptyState}>
+            Ask Persisting Perry anything about training!
+          </p>
+        )}
+
+        {messages.map((m, i) => (
+          <div
+            key={i}
+            className={`${styles.bubble} ${
+              m.role === "user" ? styles.userBubble : styles.assistantBubble
+            }`}
+          >
+            {renderMessageText(m.text)}
+          </div>
+        ))}
+
+        {loading && (
+          <div className={`${styles.bubble} ${styles.assistantBubble}`}>
+            <span className={styles.thinking}>Thinking…</span>
+          </div>
+        )}
+
+        {/* scroll target — always the last element in the list */}
+        <div ref={bottomRef} />
+      </div>
+
+      <form
+        className={styles.inputRow}
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSend();
+        }}
       >
-        {/* AI floating chat head pfp */}
-        {isOpen ? (
-          "×"
-        ) : (
-          <img
-            src="/ai_logo_trans.png"
-            alt="AI helper"
-            className={styles.logoImg}
-          />
-        )}
-      </button>
-
-      {isOpen &&
-        createPortal(
-          <div className={styles.panel}>
-            <div className={styles.header}>
-              <h3 className={styles.title}>Persisting Perry</h3>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setIsOpen(false)}
-                aria-label="Close"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className={styles.messageList}>
-              {messages.length === 0 && (
-                <p className={styles.emptyState}>
-                  Ask Persisting Perry anything about training!
-                </p>
-              )}
-
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={`${styles.bubble} ${
-                    m.role === "user"
-                      ? styles.userBubble
-                      : styles.assistantBubble
-                  }`}
-                >
-                  {renderMessageText(m.text)}
-                </div>
-              ))}
-
-              {loading && (
-                <div className={`${styles.bubble} ${styles.assistantBubble}`}>
-                  <span className={styles.thinking}>Thinking…</span>
-                </div>
-              )}
-
-              {/* scroll target — always the last element in the list */}
-              <div ref={bottomRef} />
-            </div>
-
-            <form
-              className={styles.inputRow}
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleSend();
-              }}
-            >
-              <input
-                className={styles.input}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask something..."
-                disabled={loading}
-              />
-              <button
-                type="submit"
-                className={styles.sendBtn}
-                disabled={loading || !input.trim()}
-              >
-                Send
-              </button>
-            </form>
-          </div>,
-          document.body,
-        )}
-    </>
+        <input
+          className={styles.input}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask something..."
+          disabled={loading}
+        />
+        <button
+          type="submit"
+          className={styles.sendBtn}
+          disabled={loading || !input.trim()}
+        >
+          Send
+        </button>
+      </form>
+    </div>,
+    document.body,
   );
 }

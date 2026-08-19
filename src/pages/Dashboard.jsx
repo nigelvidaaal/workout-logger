@@ -108,6 +108,17 @@ export function Dashboard() {
   // NEW — same idea, but for the Muscle Balance boxes below
   const muscleBalance = buildMuscleBalance(muscleVolume);
 
+  // NEW — "major" achievements = highest tier first (tier 7 "Goat." is the
+  // most impressive, tier 1 "First PR" the least — see server/achievements.js),
+  // not chronological, so the row leads with your best unlocks rather than
+  // just whatever happened most recently. Capped so the scroll row stays a
+  // quick skim; a "More" card appears whenever there's more to see.
+  const MAX_ACHIEVEMENTS_SHOWN = 6;
+  const majorAchievements = [...achievements]
+    .sort((a, b) => b.tier - a.tier)
+    .slice(0, MAX_ACHIEVEMENTS_SHOWN);
+  const hasMoreAchievements = achievements.length > MAX_ACHIEVEMENTS_SHOWN;
+
   return (
     <div className={styles.container}>
       {/* ─── ANALYTICS ─── */}
@@ -123,7 +134,7 @@ export function Dashboard() {
           <p className={styles.empty}>No achievements yet. Go hit a PR!</p>
         )}
         <div className={styles.achievementGrid}>
-          {achievements.map((a) => (
+          {majorAchievements.map((a) => (
             <div
               key={a.id}
               className={styles.achievementCard}
@@ -140,6 +151,19 @@ export function Dashboard() {
               </div>
             </div>
           ))}
+          {/* trailing card — only shows once there's more than fits above.
+              plain /prs, no exerciseName state, since this isn't about any
+              one exercise — it's "see everything" */}
+          {hasMoreAchievements && (
+            <button
+              type="button"
+              className={styles.moreCard}
+              onClick={() => navigate("/prs")}
+            >
+              <span>More</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
         </div>
       </section>
 

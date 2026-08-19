@@ -1,127 +1,83 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useState } from "react";
 import styles from "../styles/Navbar.module.css";
 
-export function Navbar() {
-  // pull what we need from auth context
+// aiOpen/onToggleAI come from App.jsx — this button and AIHelper's panel
+// both need to agree on the same open/closed value, so App.jsx owns it and
+// hands each component just the slice it needs (see App.jsx for why).
+export function Navbar({ aiOpen, onToggleAI }) {
   // user — { username } or null
   // logout — clears token and user from state and localStorage
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  // tracks whether the mobile menu is open
-  const [isOpen, setIsOpen] = useState(false);
-
   function handleLogout() {
-    // clear the session from context and localStorage
     logout();
     // send user to login page — they're no longer authenticated
     navigate("/login");
-    setIsOpen(false);
-  }
-
-  // close the menu whenever a link is tapped (so it doesn't stay open after navigating)
-  function closeMenu() {
-    setIsOpen(false);
   }
 
   return (
     <nav className={styles.navbar}>
-      <Link to="/" className={styles.brand} onClick={closeMenu}>
-        <img
-          src="/persist_logo_trans.png"
-          alt="Soar"
-          className={styles.logoImg}
-        />
+      <Link to="/" className={styles.brand}>
+        <div>
+          <img
+            src="/persist_logo_trans.png"
+            alt="Persist logo"
+            className={styles.logoImg}
+          />
+        </div>
+        <span className={styles.brandName}>Persist</span>
       </Link>
 
-      {/* hamburger button — only visible on mobile (CSS handles that) */}
-      <button
-        className={styles.hamburger}
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Toggle menu"
-      >
-        ☰
-      </button>
-
-      {/* links panel — gets an 'open' class when isOpen is true */}
-      <div
-        className={`${styles.navLinks} ${isOpen ? styles.navLinksOpen : ""}`}
-      >
-        {user ? (
-          <>
-            {/* the 4 page links now live in the desktop Sidebar too, so
-                pageLinks (CSS) hides this group at the desktop breakpoint —
-                kept here (and visible) on mobile, which has no sidebar and
-                still needs this as its only way to get between pages */}
-            <div className={styles.pageLinks}>
-              <NavLink
-                to="/"
-                end
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  isActive ? styles.active : styles.navLink
-                }
-              >
-                Dashboard
-              </NavLink>
-              <NavLink
-                to="/workouts"
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  isActive ? styles.active : styles.navLink
-                }
-              >
-                Workouts
-              </NavLink>
-              <NavLink
-                to="/muscles"
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  isActive ? styles.active : styles.navLink
-                }
-              >
-                Muscles
-              </NavLink>
-              <NavLink
-                to="/prs"
-                onClick={closeMenu}
-                className={({ isActive }) =>
-                  isActive ? styles.active : styles.navLink
-                }
-              >
-                PRs
-              </NavLink>
+      {/* the 4 page links used to live here too — they now live in the
+          desktop Sidebar and the mobile BottomNav instead, so this bar is
+          just branding + account actions on every screen size */}
+      {user ? (
+        <div className={styles.actions}>
+          {/* aiTrigger (CSS) hides this on mobile — the new BottomNav's
+              center icon is the AI trigger there instead. Desktop has no
+              BottomNav, so this stays the only way to open it there. */}
+          <button
+            type="button"
+            className={`${styles.iconBtn} ${styles.aiTrigger} ${aiOpen ? styles.iconBtnActive : ""}`}
+            onClick={onToggleAI}
+            aria-label={aiOpen ? "Close AI helper" : "Open AI helper"}
+          >
+            <div className={styles.aiBg}>
+              <img src="/ai_logo_trans.png" alt="" className={styles.aiIcon} />
             </div>
-            <span className={styles.username}>{user.username}</span>
-            <button className={styles.logoutBtn} onClick={handleLogout}>
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <NavLink
-              to="/login"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              Login
-            </NavLink>
-            <NavLink
-              to="/register"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              Register
-            </NavLink>
-          </>
-        )}
-      </div>
+          </button>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={handleLogout}
+            aria-label="Log out"
+          >
+            <LogOut size={20} strokeWidth={2} />
+          </button>
+        </div>
+      ) : (
+        <div className={styles.actions}>
+          <NavLink
+            to="/login"
+            className={({ isActive }) =>
+              isActive ? styles.active : styles.navLink
+            }
+          >
+            Login
+          </NavLink>
+          <NavLink
+            to="/register"
+            className={({ isActive }) =>
+              isActive ? styles.active : styles.navLink
+            }
+          >
+            Register
+          </NavLink>
+        </div>
+      )}
     </nav>
   );
 }

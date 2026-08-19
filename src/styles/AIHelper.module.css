@@ -1,41 +1,14 @@
-.floatingBtn {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--text-primary);
-  border: none;
-  font-size: 1.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  z-index: 90;
-  transition: background 0.15s, transform 0.15s;
-}
-
-.floatingBtn:hover {
-  background: var(--accent-hover);
-  transform: scale(1.05);
-}
-
-.logoImg {
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-  display:block
-}
-
+/* the trigger button that used to live here (floating bottom-right) has
+   moved into the top Navbar's "AI Persisting Perry" icon — this panel now
+   drops down from the top-right, near that button, instead of floating up
+   from the bottom (which would now also collide with the mobile BottomNav) */
 .panel {
   position: fixed;
-  bottom: 6rem;
+  top: 70px;
   right: 1.5rem;
   width: 360px;
   height: 500px;
-  max-height: calc(100vh - 8rem);
+  max-height: calc(100vh - 90px);
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--border-radius);
@@ -178,18 +151,20 @@
 }
 
 @media (max-width: 640px) {
-  .floatingBtn {
-    bottom: 1rem;
-    right: 1rem;
-  }
-
+  /* on mobile this becomes a bottom sheet instead of a top-right dropdown —
+     easier to reach with a thumb, and opened from BottomNav's center icon
+     now rather than Navbar's. bottom: 6rem matches main's padding-bottom
+     (index.css) — same clearance so it sits just above the floating
+     BottomNav pill instead of covering it. */
   .panel {
-    bottom: 0;
+    top: auto;
+    bottom: 6rem;
     right: 0;
     left: 0;
     width: auto;
-    height: 85vh;
-    max-height: 85vh;
-    border-radius: 16px 16px 0 0;
+    height: 70vh;
+    max-height: 70vh;
+    border-radius: 16px;
+    margin: 0 0.75rem;
   }
 }
