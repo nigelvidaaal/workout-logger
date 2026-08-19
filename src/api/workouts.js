@@ -44,7 +44,7 @@ export async function getWorkouts(token) {
   return handleResponse(response, 'Failed to fetch workouts')
 }
 
-// POST /api/workouts — create a new workout
+// POST /api/workouts — create a new saved workout (template, no date)
 export async function createWorkout(token, name) {
   const response = await fetch(`${BASE_URL}/workouts`, {
     method: 'POST',
@@ -53,6 +53,16 @@ export async function createWorkout(token, name) {
     body: JSON.stringify({ name })
   })
   return handleResponse(response, 'Failed to create workouts')
+}
+
+// POST /api/workouts/:id/log-today — clones a saved workout's exercises into
+// a new dated workout for today. Returns the new (dated) workout
+export async function logWorkoutToday(token, templateId) {
+  const response = await fetch(`${BASE_URL}/workouts/${templateId}/log-today`, {
+    method: 'POST',
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to log workout for today')
 }
 
 // GET /api/workouts/:id — fetch one workout with exercises and sets

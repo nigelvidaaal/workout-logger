@@ -21,6 +21,12 @@ async function setup() {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
+    -- is_template = true means a reusable "Saved Workout" (date is NULL, just
+    -- an exercise list) rather than a specific day's logged session. Existing
+    -- rows all default to false, so every workout already logged stays exactly
+    -- as it was — nothing about past data changes.
+    ALTER TABLE workouts ADD COLUMN IF NOT EXISTS is_template BOOLEAN NOT NULL DEFAULT false;
+
     CREATE TABLE IF NOT EXISTS exercises (
       id SERIAL PRIMARY KEY,
       workout_id INTEGER NOT NULL,

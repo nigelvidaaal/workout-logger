@@ -67,7 +67,10 @@
 .workoutCard {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* gap instead of space-between — now that there are 3 children (info +
+     2 buttons), space-between would spread them evenly across the row
+     instead of grouping the buttons together on the right */
+  gap: 0.75rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--border-radius);
@@ -80,6 +83,8 @@
 }
 
 .workoutInfo {
+  /* takes up the remaining space so the two buttons sit flush right */
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -91,9 +96,30 @@
   color: var(--text-primary);
 }
 
-.workoutDate {
-  font-size: 0.8rem;
-  color: var(--text-muted);
+/* .workoutDate removed — templates have no date (Part 4: "My Workouts" is
+   now a dateless "Saved Workouts" library), so the JSX no longer renders one */
+
+/* solid accent button — the primary action on a saved workout card, so it
+   gets the same treatment as .addBtn rather than .deleteBtn's outline style */
+.logTodayBtn {
+  background: var(--accent);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.logTodayBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.logTodayBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .deleteBtn {

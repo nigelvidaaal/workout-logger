@@ -249,11 +249,13 @@ export function WorkoutDetail() {
             </div>
           )}
           <p>
-            {new Date(workout.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })}
+            {workout.date
+              ? new Date(workout.date).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })
+              : "Saved Workout (no date until logged)"}
           </p>
         </div>
         <button
@@ -326,15 +328,17 @@ export function WorkoutDetail() {
               </button>
             </div>
           ))}
-
-          {/* only renders when this exercise has been logged in at least 2 workouts
-              exerciseName prop is passed so the chart knows what data to fetch */}
-          {/*<ExerciseChart exerciseName={exercise.name} > */}
-
-          {/* conditional set form — only one exercise can have the form open at a time
+          {/* templates hold exercises only, never sets, sets belong to a
+              specific dated session, and a template has no date.*/}
+          {workout.is_template ? (
+            <p className={styles.emptyMessage}>
+              Sets aren't logged on saved workouts — use "Set as Workout for
+              Today" from the list to start logging.
+            </p>
+          ) : /* conditional set form — only one exercise can have the form open at a time
               newSet.exerciseId tracks which exercise is currently being added to
-              when it matches THIS exercise's id, show the form — otherwise show the button */}
-          {newSet.exerciseId === exercise.id ? (
+              when it matches THIS exercise's id, show the form — otherwise show the button */
+          newSet.exerciseId === exercise.id ? (
             <form onSubmit={handleAddSet} className={styles.addSetForm}>
               <input
                 className={styles.input}

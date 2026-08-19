@@ -41,21 +41,25 @@ function groupExercisesWithSets(rows) {
   return Object.values(map)
 }
 
-// GET all workouts for the logged-in user
-// requireAuth runs first — attaches req.userId if token is valid
+// GET all SAVED WORKOUTS (templates) for the logged-in user — "My Workouts" is
+// now a template library, not a dated history, so this only returns
+// is_template rows. ORDER BY date DESC doesn't mean anything here (templates
+// have no date), so newest-created-first (id DESC) instead.
 router.get('/', requireAuth, async (req, res) => {
   const result = await pool.query(
-    'SELECT * FROM workouts WHERE user_id = $1 ORDER BY date DESC',
+    'SELECT * FROM workouts WHERE user_id = $1 AND is_template = true ORDER BY id DESC',
     [req.userId]
   )
-  // the whole array 
+  // the whole array
   res.json(result.rows)
 })
 
 
-// POST / 
+// POST / — creates a new SAVED WORKOUT (template): no date, is_template = true.
+// Dated sessions only ever get created via POST /:id/log-today below, by
+// cloning a template — never directly here anymore.
 router.post('/', requireAuth, async (req, res) => {
-  // destructure name from req.body 
+  // destructure name from req.body
   const { name } = req.body;
 
   // validate if name exists
@@ -65,9 +69,11 @@ router.post('/', requireAuth, async (req, res) => {
 
   // insert the workout — user_id comes from req.userId set by requireAuth
   // this is how every workout gets tied to its owner
+  // date is explicitly NULL (overrides the column's DEFAULT NOW(), which only
+  // applies when a column is left out of the INSERT entirely, not set to NULL)
   try {
     const result = await pool.query(
-      'INSERT INTO workouts (user_id, name) VALUES ($1, $2) RETURNING id', 
+      'INSERT INTO workouts (user_id, name, date, is_template) VALUES ($1, $2, NULL, true) RETURNING *',
       [req.userId, name]
     )// ↑ user   ↑ workout name
 
@@ -80,6 +86,56 @@ router.post('/', requireAuth, async (req, res) => {
   } catch (err){
     console.error(err)
     return res.status(500).json({ error: 'Failed to create workout'});
+  }
+})
+
+// POST /:id/log-today — clones a saved workout's exercise list into a brand
+// new DATED workout for today, so repeating a workout doesn't mean retyping
+// every exercise. Templates never carry sets (only exercises), so there's
+// nothing to clone besides the exercise rows themselves.
+router.post('/:id/log-today', requireAuth, async (req, res) => {
+  const { id } = req.params
+
+  try {
+    // ownership + existence check, same shape as every other :id route here —
+    // made explicit (rather than relying on a later step to fail) since this
+    // one goes on to perform multiple writes
+    const templateResult = await pool.query(
+      'SELECT * FROM workouts WHERE id = $1 AND user_id = $2 AND is_template = true',
+      [id, req.userId]
+    )
+    const template = templateResult.rows[0]
+    if (!template) {
+      return res.status(404).json({ error: 'Saved workout not found' })
+    }
+
+    const exercisesResult = await pool.query(
+      'SELECT name, muscle_group, catalog_id FROM exercises WHERE workout_id = $1',
+      [id]
+    )
+
+    // today's dated workout — same name as the template it came from
+    const newWorkoutResult = await pool.query(
+      'INSERT INTO workouts (user_id, name, date, is_template) VALUES ($1, $2, NOW(), false) RETURNING *',
+      [req.userId, template.name]
+    )
+    const newWorkout = newWorkoutResult.rows[0]
+
+    // clone each exercise onto the new workout, one INSERT at a time (not
+    // Promise.all) — if one fails partway through, the new workout ends up
+    // with a partial-but-consistent exercise list instead of rows landing in
+    // an unpredictable order
+    for (const ex of exercisesResult.rows) {
+      await pool.query(
+        'INSERT INTO exercises (workout_id, name, muscle_group, catalog_id) VALUES ($1, $2, $3, $4)',
+        [newWorkout.id, ex.name, ex.muscle_group, ex.catalog_id]
+      )
+    }
+
+    res.status(201).json(newWorkout)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to log workout for today' })
   }
 })
 
