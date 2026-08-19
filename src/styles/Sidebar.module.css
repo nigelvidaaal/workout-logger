@@ -1,0 +1,50 @@
+/* hidden by default (mobile-first) — the app already has the hamburger
+   nav for small screens, so this only shows up alongside it */
+.sidebar {
+  display: none;
+}
+
+@media (min-width: 641px) {
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 220px;
+    /* stops the flex row from squeezing this column to fit <main> */
+    flex-shrink: 0;
+    /* sticks just below the fixed top navbar and scrolls with the page
+       until it hits the top, then holds there — no JS needed */
+    position: sticky;
+    top: 60px;
+    align-self: flex-start;
+    height: calc(100vh - 60px);
+    padding: 1.5rem 1rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg-secondary);
+  }
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--border-radius);
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s;
+}
+
+.link:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 500;
+  /* left accent bar so the active page reads at a glance, same accent
+     color used for PR badges/highlights elsewhere in the app */
+  box-shadow: inset 3px 0 0 var(--accent);
+}
