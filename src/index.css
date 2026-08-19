@@ -56,6 +56,15 @@ main {
   /* fills whatever width is left beside the sidebar (or the full row on
      mobile, where Sidebar's own CSS hides it) */
   flex: 1;
+  /* THE actual mobile fix: flex items default to min-width: auto, which
+     means "never shrink smaller than my widest content" (e.g. the
+     Analytics chart). That's exactly what broke mobile the moment <main>
+     became a flex item instead of a plain block — the row refused to
+     shrink to the phone's width and pushed everything, including the
+     navbar's hamburger button, off-screen to the right. min-width: 0
+     overrides that so <main> (and the chart inside it, which already
+     sizes itself responsively) can actually shrink to fit. */
+  min-width: 0;
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem 1.5rem;
