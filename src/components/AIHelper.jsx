@@ -4,6 +4,35 @@ import { useAuth } from "../context/AuthContext";
 import { sendAIMessage } from "../api/workouts";
 import styles from "../styles/AIHelper.module.css";
 
+// Perry's replies come back as plain text but often use **bold** and
+// line-by-line tips (see the system prompt in server/routes/ai.js). Without
+// this, "**Progressive Overload**" would render as literal asterisks and
+// every line would run together into one paragraph, since a plain string
+// dropped into JSX ignores \n. This turns that text into real React nodes —
+// deliberately NOT dangerouslySetInnerHTML, since the reply is influenced by
+// what the user typed, and injecting raw HTML from that would be an XSS risk.
+function renderMessageText(text) {
+  const lines = text.split("\n");
+  return lines.map((line, i) => (
+    <span key={i}>
+      {renderBoldSegments(line)}
+      {i < lines.length - 1 && <br />}
+    </span>
+  ));
+}
+
+// splits one line on **bold** markers, wrapping matches in <strong> —
+// everything else is returned as plain text, which React escapes for us
+function renderBoldSegments(line) {
+  return line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    ),
+  );
+}
+
 export function AIHelper() {
   const { token } = useAuth();
 
@@ -102,7 +131,7 @@ export function AIHelper() {
                       : styles.assistantBubble
                   }`}
                 >
-                  {m.text}
+                  {renderMessageText(m.text)}
                 </div>
               ))}
 

@@ -3,15 +3,21 @@ const router = express.Router()
 const requireAuth = require('../middleware/auth')
 const Anthropic = require('@anthropic-ai/sdk')
 
-// reads anthropic api key from .env 
+// one client, created once when the server starts (not per-request) — it
+// reads ANTHROPIC_API_KEY from process.env, which server/index.js already
+// loads via dotenv.config() at the top of the file
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-// sets the assistant's persona/behavior on every request 
+// sets the assistant's persona/behavior on every request — this is what
+// makes replies sound like "Persisting Perry" instead of a generic bot.
+// (tightened from the original draft — same premise, fewer run-on clauses,
+// and an explicit "keep it short" line since this renders in a chat bubble)
 const SYSTEM_PROMPT = `You are Persisting Perry, the AI helper built into the Persist workout tracker.
 Help users with fitness questions — form, lifting advice, and hitting their goals.
-Keep replies short and friendly, like a supportive workout buddy.`
+Keep replies short and friendly, like a supportive workout buddy.
+When listing multiple tips, put each one on its own line instead of one long paragraph.`
 
 // POST /api/ai/chat - AI helper, now backed by the real Anthropic API
 router.post('/chat', requireAuth, async (req, res) => {
