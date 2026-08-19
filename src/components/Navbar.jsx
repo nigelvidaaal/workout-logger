@@ -51,43 +51,49 @@ export function Navbar() {
       >
         {user ? (
           <>
-            <NavLink
-              to="/"
-              end
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="/workouts"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              Workouts
-            </NavLink>
-            <NavLink
-              to="/muscles"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              Muscles
-            </NavLink>
-            <NavLink
-              to="/prs"
-              onClick={closeMenu}
-              className={({ isActive }) =>
-                isActive ? styles.active : styles.navLink
-              }
-            >
-              PRs
-            </NavLink>
+            {/* the 4 page links now live in the desktop Sidebar too, so
+                pageLinks (CSS) hides this group at the desktop breakpoint —
+                kept here (and visible) on mobile, which has no sidebar and
+                still needs this as its only way to get between pages */}
+            <div className={styles.pageLinks}>
+              <NavLink
+                to="/"
+                end
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  isActive ? styles.active : styles.navLink
+                }
+              >
+                Dashboard
+              </NavLink>
+              <NavLink
+                to="/workouts"
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  isActive ? styles.active : styles.navLink
+                }
+              >
+                Workouts
+              </NavLink>
+              <NavLink
+                to="/muscles"
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  isActive ? styles.active : styles.navLink
+                }
+              >
+                Muscles
+              </NavLink>
+              <NavLink
+                to="/prs"
+                onClick={closeMenu}
+                className={({ isActive }) =>
+                  isActive ? styles.active : styles.navLink
+                }
+              >
+                PRs
+              </NavLink>
+            </div>
             <span className={styles.username}>{user.username}</span>
             <button className={styles.logoutBtn} onClick={handleLogout}>
               Logout

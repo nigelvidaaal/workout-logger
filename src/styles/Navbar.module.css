@@ -43,6 +43,15 @@
   gap: 1.5rem;
 }
 
+/* the group of 4 page links (Dashboard/Workouts/Muscles/PRs) — stacked here
+   to match the rest of the mobile dropdown by default; hidden entirely at
+   the desktop breakpoint below, where the Sidebar covers this job instead */
+.pageLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .navLink {
   color: var(--text-secondary);            
   text-decoration: none;
@@ -77,6 +86,14 @@
 .logoutBtn:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* desktop — hide the page links here since the Sidebar now handles that
+   navigation; username + Logout are all that's left in the top bar */
+@media (min-width: 641px) {
+  .pageLinks {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
