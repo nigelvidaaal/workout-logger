@@ -89,29 +89,21 @@
   text-transform: capitalize;
 }
 
-/* Muscle Balance boxes — two side-by-side groups, wrapping to stacked on
-   narrow screens since there's no scroll affordance here like the achievements
-   row has */
-.balanceRow {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+/* Muscle Balance — Phase 3 Part 2: every group shown at once (no more
+   top-3/bottom-3 split), each on its own 10-20 sets/week gradient color
+   instead of a fixed "high"/"low" bucket */
+.balanceHint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
 }
 
-.balanceGroup {
-  flex: 1 1 220px;
-}
-
-.balanceLabel {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.5rem;
-}
-
-.balanceBoxes {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+.balanceGrid {
+  display: grid;
+  /* as many 160px+ columns as fit — 5 across on desktop, fewer on mobile,
+     without a media query needed for the column count itself */
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
 }
 
 .balanceBox {
@@ -122,17 +114,10 @@
   background: var(--bg-card);
   border-radius: var(--border-radius);
   border: 1px solid var(--border);
-}
-
-/* left border color is the only thing distinguishing the two groups — reuses
-   the same green/yellow the muscle chart's own tiers already use, so the
-   color vocabulary stays consistent across the app */
-.balanceBoxHigh {
-  border-left: 3px solid #33ff33;
-}
-
-.balanceBoxLow {
-  border-left: 3px solid #ffd700;
+  /* --balance-color is set inline per-box (Dashboard.jsx) since it's a
+     computed gradient value, not one of a few fixed states a CSS class
+     could represent */
+  border-left: 3px solid var(--balance-color);
 }
 
 .balanceBoxName {

@@ -143,6 +143,18 @@ export async function getMuscleVolume(token, range = "today") {
   return handleResponse(response, 'Failed to fetch muscle volume')
 }
 
+// GET /api/workouts/muscle-sets?range=today|week|month|all
+// total SETS (not tonnage) per muscle group — feeds the Dashboard's Muscle
+// Balance boxes (Phase 3 Part 2). Separate from getMuscleVolume above,
+// which the anatomy chart still uses.
+export async function getMuscleSets(token, range = "week") {
+  const response = await fetch(
+    `${BASE_URL}/workouts/muscle-sets?range=${encodeURIComponent(range)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch muscle sets')
+}
+
 // GET /api/analytics/volume?range=week|month|all
 // total training volume bucketed over time — feeds the Dashboard analytics chart
 export async function getVolumeAnalytics(token, range = "week") {

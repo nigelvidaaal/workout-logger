@@ -2,9 +2,32 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
-const { computeMuscleVolume } = require('../muscle_split')  // adjust path
+const { computeMuscleVolume, computeMuscleSets } = require('../muscle_split')  // adjust path
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
+
+// shared by /muscle-volume and /muscle-sets below — both filter to the same
+// today|week|month|all windows, just aggregating a different number per set.
+// Lifted up here (was previously copy-pasted inside one route handler) so
+// there's exactly one place that defines what each range means.
+const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
+
+// w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
+// wall-clock (the session timezone at insert time, UTC on Neon). A single
+// AT TIME ZONE would misinterpret that naive UTC value as if it were already
+// APP_TIMEZONE-local — the double conversion below is required: first
+// reinterpret as UTC (naive -> timestamptz), then convert that instant into
+// APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
+// NOW() is already timestamptz, so it only needs the single conversion.
+function getRangeClause(range) {
+  const RANGE_CLAUSES = {
+    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
+    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
+    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
+    all: '',
+  }
+  return RANGE_CLAUSES[range]
+}
 
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
 function groupExercisesWithSets(rows) {
@@ -146,23 +169,8 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
 router.get('/muscle-volume', requireAuth, async (req, res) => {
   // frontend sends ?range=today|week|month|all (default, and fallback for
   // anything unrecognized, is 'today' — never silently falls through to all-time)
-  const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'today'
-
-  // w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
-  // wall-clock (the session timezone at insert time, UTC on Neon). A single
-  // AT TIME ZONE would misinterpret that naive UTC value as if it were already
-  // APP_TIMEZONE-local — the double conversion below is required: first
-  // reinterpret as UTC (naive -> timestamptz), then convert that instant into
-  // APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
-  // NOW() is already timestamptz, so it only needs the single conversion.
-  const RANGE_CLAUSES = {
-    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
-    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
-    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
-    all: '',
-  }
-  const dateClause = RANGE_CLAUSES[range]
+  const dateClause = getRangeClause(range)
 
   const result = await pool.query(`
     SELECT
@@ -177,10 +185,36 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
       ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
-  
+
   // muscle-split.js, transform raw rows into per muscle group tonnage
   const volume = computeMuscleVolume(result.rows)
   res.json(volume)
+})
+
+// GET /api/workouts/muscle-sets
+// total SETS (not tonnage) per muscle group — feeds the Dashboard's Muscle
+// Balance boxes now that they track "sets/week toward a 10-20 target"
+router.get('/muscle-sets', requireAuth, async (req, res) => {
+  // defaults to 'week' (not 'today') since "sets/week" 
+  const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'week'
+  const dateClause = getRangeClause(range)
+
+  const result = await pool.query(`
+    SELECT
+      ec.primary_muscles,
+      ec.secondary_muscles,
+      COUNT(s.id) AS set_count
+    FROM sets s
+    JOIN exercises e ON s.exercise_id = e.id
+    JOIN workouts w ON e.workout_id = w.id
+    JOIN exercise_catalog ec ON e.catalog_id = ec.id
+    WHERE w.user_id = $1
+      ${dateClause}
+    GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
+  `, [req.userId])
+
+  const setsByGroup = computeMuscleSets(result.rows)
+  res.json(setsByGroup)
 })
 
 // GET /api/workouts/pr-summary

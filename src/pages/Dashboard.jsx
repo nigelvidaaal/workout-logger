@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // NEW — lets us send the user to /prs on click
 import { useAuth } from "../context/AuthContext";
-import { getAchievements, getPRs, getTiers, getMuscleVolume } from "../api/workouts";
+import { getAchievements, getPRs, getTiers, getMuscleSets } from "../api/workouts";
 import { AnalyticsSection } from "../components/AnalyticsSection";
-import { buildMuscleBalance } from "../utils/muscleBalance"; // NEW — most-trained/needs-work split
+import { buildMuscleBalance } from "../utils/muscleBalance"; // Phase 3 Part 2 — sets/week per group, all 10 shown
 import styles from "../styles/Dashboard.module.css";
 
 export function Dashboard() {
@@ -11,7 +11,7 @@ export function Dashboard() {
   const [achievements, setAchievements] = useState([]);
   const [prs, setPrs] = useState([]);
   const [tiers, setTiers] = useState([]); // NEW
-  const [muscleVolume, setMuscleVolume] = useState({}); // NEW — feeds Muscle Balance boxes below
+  const [muscleSets, setMuscleSets] = useState({}); // Phase 3 Part 2 — feeds Muscle Balance boxes below
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -22,18 +22,19 @@ export function Dashboard() {
     try {
       setLoading(true);
       // fire both requests in parallel
-      // "week" here matches the recent, actionable framing of the Muscle
-      // Balance boxes — swap for "month" if a week reads too sparse for you
-      const [achievementsData, prsData, tiersData, muscleVolumeData] = await Promise.all([
+      // "week" matches the "sets/WEEK" target the Muscle Balance boxes
+      // are measuring against — getMuscleSets defaults to "week" too, but
+      // being explicit here keeps this call self-documenting
+      const [achievementsData, prsData, tiersData, muscleSetsData] = await Promise.all([
         getAchievements(token),
         getPRs(token),
         getTiers(token),
-        getMuscleVolume(token, "week"),
+        getMuscleSets(token, "week"),
       ]);
       setAchievements(achievementsData);
       setPrs(prsData);
       setTiers(tiersData);
-      setMuscleVolume(muscleVolumeData);
+      setMuscleSets(muscleSetsData);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -105,8 +106,9 @@ export function Dashboard() {
 
   // transform the raw PR list into grouped cards — done once per render, here
   const groupedPRs = groupPRsByExercise(prs);
-  // NEW — same idea, but for the Muscle Balance boxes below
-  const muscleBalance = buildMuscleBalance(muscleVolume);
+  // Phase 3 Part 2 — one entry per muscle group, each with its own
+  // gradient color; no more top-3/bottom-3 split (see muscleBalance.js)
+  const muscleBalance = buildMuscleBalance(muscleSets);
 
   // NEW — "major" achievements = highest tier first (tier 7 "Goat." is the
   // most impressive, tier 1 "First PR" the least — see server/achievements.js),
@@ -167,41 +169,28 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* ─── MUSCLE BALANCE — quick outliers, no need to open the full chart ─── */}
+      {/* ─── MUSCLE BALANCE — every group against a 10-20 sets/week target ─── */}
       <section className={styles.section}>
         <h2>Muscle Balance</h2>
-        <div className={styles.balanceRow}>
-          <div className={styles.balanceGroup}>
-            <h3 className={styles.balanceLabel}>Most Trained</h3>
-            <div className={styles.balanceBoxes}>
-              {muscleBalance.mostTrained.length === 0 && (
-                <p className={styles.empty}>Nothing logged this week yet.</p>
-              )}
-              {muscleBalance.mostTrained.map((m) => (
-                <div key={m.value} className={`${styles.balanceBox} ${styles.balanceBoxHigh}`}>
-                  <span className={styles.balanceBoxName}>{m.label}</span>
-                  <span className={styles.balanceBoxTonnage}>
-                    {m.tonnage.toLocaleString()} lbs
-                  </span>
-                </div>
-              ))}
+        <p className={styles.balanceHint}>Target: 10–20 sets/week per muscle group</p>
+        <div className={styles.balanceGrid}>
+          {muscleBalance.map((m) => (
+            // color is a computed gradient (muscleBalance.js), not a fixed
+            // CSS class, so it's set inline via a CSS custom property —
+            // borderLeftColor directly would work too, but this keeps the
+            // color logic visible in one place (the .module.css rule) if
+            // the box's styling changes later
+            <div
+              key={m.value}
+              className={styles.balanceBox}
+              style={{ "--balance-color": m.color }}
+            >
+              <span className={styles.balanceBoxName}>{m.label}</span>
+              <span className={styles.balanceBoxTonnage}>
+                {m.setsPerWeek} {m.setsPerWeek === 1 ? "set" : "sets"}/wk
+              </span>
             </div>
-          </div>
-
-          <div className={styles.balanceGroup}>
-            <h3 className={styles.balanceLabel}>Needs Attention</h3>
-            <div className={styles.balanceBoxes}>
-              {muscleBalance.needsWork.map((m) => (
-                <div key={m.value} className={`${styles.balanceBox} ${styles.balanceBoxLow}`}>
-                  <span className={styles.balanceBoxName}>{m.label}</span>
-                  <span className={styles.balanceBoxTonnage}>
-                    {/* 0 tonnage reads better as "not logged" than "0 lbs" */}
-                    {m.tonnage > 0 ? `${m.tonnage.toLocaleString()} lbs` : "Not logged"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
