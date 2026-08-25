@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom"; // NEW — lets us send the user to /prs on click
 import { useAuth } from "../context/AuthContext";
-import { getAchievements, getPRs, getTiers, getMuscleSets } from "../api/workouts";
+import {
+  getAchievements,
+  getPRs,
+  getTiers,
+  getMuscleSets,
+} from "../api/workouts";
 import { AnalyticsSection } from "../components/AnalyticsSection";
 import { HistoryCalendar } from "../components/HistoryCalendar"; // Phase 3 Part 3 — weekly workout calendar
 import { buildMuscleBalance } from "../utils/muscleBalance"; // Phase 3 Part 2 — sets/week per group, all 10 shown
@@ -26,12 +31,13 @@ export function Dashboard() {
       // "week" matches the "sets/WEEK" target the Muscle Balance boxes
       // are measuring against — getMuscleSets defaults to "week" too, but
       // being explicit here keeps this call self-documenting
-      const [achievementsData, prsData, tiersData, muscleSetsData] = await Promise.all([
-        getAchievements(token),
-        getPRs(token),
-        getTiers(token),
-        getMuscleSets(token, "week"),
-      ]);
+      const [achievementsData, prsData, tiersData, muscleSetsData] =
+        await Promise.all([
+          getAchievements(token),
+          getPRs(token),
+          getTiers(token),
+          getMuscleSets(token, "week"),
+        ]);
       setAchievements(achievementsData);
       setPrs(prsData);
       setTiers(tiersData);
@@ -122,8 +128,21 @@ export function Dashboard() {
     .slice(0, MAX_ACHIEVEMENTS_SHOWN);
   const hasMoreAchievements = achievements.length > MAX_ACHIEVEMENTS_SHOWN;
 
+  // page date header
+  const todayLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
     <div className={styles.container}>
+      {/* ─── PAGE HEADER — Phase 3 Part 4: today's date above the title ─── */}
+      <div className={styles.pageHeader}>
+        <p className={styles.pageDate}>{todayLabel}</p>
+        <h1 className={styles.pageTitle}>Dashboard</h1>
+      </div>
+
       {/* ─── ANALYTICS ─── */}
       <section className={styles.section}>
         <h2>Analytics</h2>
@@ -136,8 +155,8 @@ export function Dashboard() {
         <HistoryCalendar />
       </section>
 
-      {/* ─── ACHIEVEMENTS ─── */}
-      <section className={styles.section}>
+      {/* ─── ACHIEVEMENTS — Phase 3 Part 4: wrapped in the "glass container" ─── */}
+      <section className={`${styles.section} ${styles.glass}`}>
         <h2>Achievements</h2>
         {achievements.length === 0 && (
           <p className={styles.empty}>No achievements yet. Go hit a PR!</p>
@@ -176,10 +195,13 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* ─── MUSCLE BALANCE — every group against a 10-20 sets/week target ─── */}
-      <section className={styles.section}>
+      {/* ─── MUSCLE BALANCE — every group against a 10-20 sets/week target,
+          Phase 3 Part 4: wrapped in the "glass container" ─── */}
+      <section className={`${styles.section} ${styles.glass}`}>
         <h2>Muscle Balance</h2>
-        <p className={styles.balanceHint}>Target: 10–20 sets/week per muscle group</p>
+        <p className={styles.balanceHint}>
+          Target: 10–20 sets/week per muscle group
+        </p>
         <div className={styles.balanceGrid}>
           {muscleBalance.map((m) => (
             // color is a computed gradient (muscleBalance.js), not a fixed
@@ -201,8 +223,9 @@ export function Dashboard() {
         </div>
       </section>
 
-      {/* ─── PRs, grouped by exercise, with tier progress ─── */}
-      <section className={styles.section}>
+      {/* ─── PRs, grouped by exercise, with tier progress —
+          Phase 3 Part 4: wrapped in the "glass container" ─── */}
+      <section className={`${styles.section} ${styles.glass}`}>
         <h2>Personal Records</h2>
         {groupedPRs.length === 0 && (
           <p className={styles.empty}>No PRs logged yet.</p>
