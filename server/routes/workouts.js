@@ -192,10 +192,11 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
 })
 
 // GET /api/workouts/muscle-sets
-// total SETS (not tonnage) per muscle group — feeds the Dashboard's Muscle
+// total SETS per muscle group — feeds the Dashboard's Muscle
 // Balance boxes now that they track "sets/week toward a 10-20 target"
 router.get('/muscle-sets', requireAuth, async (req, res) => {
-  // defaults to 'week' (not 'today') since "sets/week" 
+  // defaults to 'week' (not 'today') since "sets/week" is the whole point —
+  // a single day's sets against a weekly target would read as almost empty
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'week'
   const dateClause = getRangeClause(range)
 
@@ -215,6 +216,71 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
 
   const setsByGroup = computeMuscleSets(result.rows)
   res.json(setsByGroup)
+})
+
+// GET /api/workouts/history?weekOffset=0
+// Phase 3 Part 3 — one row per day of a Monday-Sunday week, ALWAYS 7 rows
+// even for days with zero workouts (generate_series builds the 7 dates
+// first, then LEFT JOINs real data onto them — a plain GROUP BY on the
+// workouts table alone would silently drop empty days instead of showing
+// them as "0 sets"). weekOffset shifts which week: 0 = this week, -1 =
+// last week, 1 = next week. registered BEFORE /:id — same reasoning as
+// /muscle-volume and /muscle-sets above.
+router.get('/history', requireAuth, async (req, res) => {
+  // parseInt + `|| 0` — anything missing or non-numeric in the query
+  // string (e.g. ?weekOffset=banana) safely falls back to "this week"
+  // instead of reaching the database as a bad value
+  const weekOffset = parseInt(req.query.weekOffset, 10) || 0
+
+  try {
+    const result = await pool.query(`
+      WITH week_start AS (
+        -- date_trunc('week', ...) rounds down to that week's Monday.
+        -- $1 is the number of whole weeks to shift by — Postgres lets you
+        -- multiply an INTERVAL by a number, so -1 * INTERVAL '1 week'
+        -- becomes "minus 1 week" and 1 becomes "plus 1 week"
+        SELECT date_trunc('week', NOW() AT TIME ZONE '${APP_TIMEZONE}')::date
+               + ($1 * INTERVAL '1 week') AS start
+      ),
+      days AS (
+        -- generate_series(start, start+6 days, 1 day) = exactly 7 rows,
+        -- Monday through Sunday — this is what guarantees every day
+        -- appears below even if the user logged nothing that day
+        SELECT generate_series(start, start + INTERVAL '6 days', INTERVAL '1 day')::date AS day
+        FROM week_start
+      )
+      SELECT
+        days.day,
+        COUNT(DISTINCT e.id) AS exercise_count,
+        COUNT(s.id) AS set_count
+      FROM days
+      -- LEFT JOIN (not JOIN) — keeps every day from the 'days' CTE even
+      -- when no workout matches it, same double AT TIME ZONE conversion
+      -- as getRangeClause() above (naive UTC timestamp -> APP_TIMEZONE date)
+      LEFT JOIN workouts w
+        ON DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = days.day
+        AND w.user_id = $2
+        AND w.is_template = false
+      LEFT JOIN exercises e ON e.workout_id = w.id
+      LEFT JOIN sets s ON s.exercise_id = e.id
+      GROUP BY days.day
+      ORDER BY days.day
+    `, [weekOffset, req.userId])
+
+    // COUNT() comes back from pg as a string (bigint) — Number(...) here
+    // instead of in the frontend keeps every route's JSON output actual
+    // numbers, same pattern as computeMuscleVolume/computeMuscleSets
+    const days = result.rows.map((row) => ({
+      day: row.day,
+      exercise_count: Number(row.exercise_count),
+      set_count: Number(row.set_count),
+    }))
+
+    res.json(days)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to fetch workout history' })
+  }
 })
 
 // GET /api/workouts/pr-summary

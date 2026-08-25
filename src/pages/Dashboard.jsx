@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom"; // NEW — lets us send the user
 import { useAuth } from "../context/AuthContext";
 import { getAchievements, getPRs, getTiers, getMuscleSets } from "../api/workouts";
 import { AnalyticsSection } from "../components/AnalyticsSection";
+import { HistoryCalendar } from "../components/HistoryCalendar"; // Phase 3 Part 3 — weekly workout calendar
 import { buildMuscleBalance } from "../utils/muscleBalance"; // Phase 3 Part 2 — sets/week per group, all 10 shown
 import styles from "../styles/Dashboard.module.css";
 
@@ -127,6 +128,12 @@ export function Dashboard() {
       <section className={styles.section}>
         <h2>Analytics</h2>
         <AnalyticsSection />
+      </section>
+
+      {/* ─── HISTORY — Phase 3 Part 3: weekly calendar of logged workouts ─── */}
+      <section className={styles.section}>
+        <h2>History</h2>
+        <HistoryCalendar />
       </section>
 
       {/* ─── ACHIEVEMENTS ─── */}

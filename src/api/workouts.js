@@ -155,6 +155,18 @@ export async function getMuscleSets(token, range = "week") {
   return handleResponse(response, 'Failed to fetch muscle sets')
 }
 
+// GET /api/workouts/history?weekOffset=0
+// Phase 3 Part 3 — always 7 days (Monday-Sunday), even ones with zero
+// workouts logged — feeds the Dashboard's History calendar. weekOffset:
+// 0 = this week, -1 = last week, 1 = next week, etc.
+export async function getWorkoutHistory(token, weekOffset = 0) {
+  const response = await fetch(
+    `${BASE_URL}/workouts/history?weekOffset=${encodeURIComponent(weekOffset)}`,
+    { headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to fetch workout history')
+}
+
 // GET /api/analytics/volume?range=week|month|all
 // total training volume bucketed over time — feeds the Dashboard analytics chart
 export async function getVolumeAnalytics(token, range = "week") {
