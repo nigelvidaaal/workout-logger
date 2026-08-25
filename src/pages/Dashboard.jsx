@@ -156,7 +156,7 @@ export function Dashboard() {
       </section>
 
       {/* ─── ACHIEVEMENTS — Phase 3 Part 4: wrapped in the "glass container" ─── */}
-      <section className={`${styles.section} ${styles.glass}`}>
+      <section className={styles.section}>
         <h2>Achievements</h2>
         {achievements.length === 0 && (
           <p className={styles.empty}>No achievements yet. Go hit a PR!</p>
@@ -225,7 +225,7 @@ export function Dashboard() {
 
       {/* ─── PRs, grouped by exercise, with tier progress —
           Phase 3 Part 4: wrapped in the "glass container" ─── */}
-      <section className={`${styles.section} ${styles.glass}`}>
+      <section className={styles.section}>
         <h2>Personal Records</h2>
         {groupedPRs.length === 0 && (
           <p className={styles.empty}>No PRs logged yet.</p>
