@@ -216,7 +216,7 @@ export function Dashboard() {
             >
               <span className={styles.balanceBoxName}>{m.label}</span>
               <span className={styles.balanceBoxTonnage}>
-                {m.setsPerWeek} {m.setsPerWeek === 1 ? "set" : "sets"}/wk
+                {m.setsPerWeek} {m.setsPerWeek === 1 ? "set" : "sets"}
               </span>
             </div>
           ))}

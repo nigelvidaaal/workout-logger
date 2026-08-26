@@ -23,7 +23,23 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
+}
+
+/* CLAUDE CODE — bug fix: without this, .headerInfo had no size limit of its
+   own, so when it's in "rename" mode the .renameInputWrap inside it (which
+   has flex: 1) had nothing to shrink AGAINST — it just kept growing until
+   .headerInfo (and the whole rename row) filled the entire header, leaving
+   no room for .deleteWorkoutBtn beside it and forcing it onto its own line.
+   flex: 1 here gives .headerInfo a real, shrinkable share of .header's
+   width instead of an unbounded one; min-width: 0 is what actually lets it
+   shrink below the input's intrinsic width (same reasoning as the other
+   min-width: 0 fixes in this file). .deleteWorkoutBtn gets flex-shrink: 0
+   so it always keeps its own natural size rather than getting squeezed. */
+.headerInfo {
+  flex: 1;
+  min-width: 0;
 }
 
 .headerInfo h1 {
@@ -50,28 +66,78 @@
   color: var(--accent);
 }
 
+/* CLAUDE CODE — redesigned per Nigel's reference screenshot: no more
+   separate "Save"/"Cancel" text buttons. The input itself carries a small
+   pencil icon inside its own right edge (purely decorative — just a visual
+   cue that this field is editable/being edited), and there's a single
+   checkmark button to confirm. Escape/Enter on the input still cancel/save
+   from the keyboard even though there's no visible Cancel button anymore
+   (see the onKeyDown handler in WorkoutDetail.jsx). */
 .renameRow {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-wrap: wrap;
+}
+
+.renameInputWrap {
+  position: relative;
+  flex: 1;
+  /* same min-width: 0 reasoning as .input above — this is a flex item
+     (of .renameRow) that needs to be allowed to shrink below the input's
+     intrinsic content width on narrow screens */
+  min-width: 0;
 }
 
 .renameInput {
+  width: 100%;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--border-radius);
   color: var(--text-primary);
-  padding: 0.4rem 0.75rem;
+  /* extra right padding clears the pencil icon overlaid below */
+  padding: 0.4rem 2.25rem 0.4rem 0.75rem;
   font-size: 1.4rem;
   font-weight: 600;
   font-family: inherit;
-  max-width: 100%;
 }
 
 .renameInput:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.renameInputIcon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 1rem;
+  /* decoration only — clicks pass through to the input underneath */
+  pointer-events: none;
+}
+
+.confirmRenameBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--accent);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.5rem 0.75rem;
+  transition: all 0.15s;
+}
+
+.confirmRenameBtn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.confirmRenameBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .headerInfo p {
@@ -81,6 +147,11 @@
 }
 
 .deleteWorkoutBtn {
+  /* CLAUDE CODE — pairs with .headerInfo's flex: 1 above: this keeps its
+     own natural content size and never gets squeezed or wrapped, so it
+     stays beside the rename row no matter how narrow the screen gets. */
+  flex-shrink: 0;
+  white-space: nowrap;
   background: transparent;
   border: 1px solid var(--border);
   color: var(--accent);
@@ -103,6 +174,16 @@
 
 .input {
   flex: 1;
+  /* CLAUDE CODE — bug fix: this is used both as a flex item (.addExerciseForm)
+     and a CSS grid item (.addSetForm below). Both flex and grid items default
+     to min-width: auto, which means "never shrink below my content's own
+     intrinsic width" — for a plain <input> that intrinsic width is wider
+     than the narrow column it's given on a phone screen, so the Reps/Weight/
+     Set # inputs refused to shrink, forced their grid track wider than the
+     viewport, and pushed the whole card (and Save/Cancel below it) off the
+     right edge of the screen. Same root cause, same fix, as the min-width: 0
+     note on <main> in index.css. */
+  min-width: 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--border-radius);
@@ -276,17 +357,16 @@
     flex-direction: column;
   }
 
-  .renameRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
+  /* CLAUDE CODE — .renameRow used to stack into a column here (input full
+     width, buttons full width below). Not needed anymore: the new
+     input+checkmark layout stays in one row and shrinks correctly via
+     .renameInputWrap's min-width: 0, matching the reference screenshot's
+     compact single-row look even on a narrow phone. */
 
-  .renameInput {
-    width: 100%;
-  }
-
-  .header {
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
+  /* CLAUDE CODE — bug fix: .header used to switch to flex-wrap: wrap here,
+     which is exactly what was dropping "Delete Workout" onto its own line
+     below the rename row — with .headerInfo now given a real, shrinkable
+     flex: 1 share of the row (see .headerInfo above), .header no longer
+     needs to wrap at any width; both stay side by side and the rename
+     row simply shrinks instead of pushing its neighbor down. */
 }

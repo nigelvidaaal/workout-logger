@@ -213,26 +213,35 @@ export function WorkoutDetail() {
         <div className={styles.headerInfo}>
           {isEditing ? (
             <div className={styles.renameRow}>
-              <input
-                className={styles.renameInput}
-                value={editedName}
-                onChange={(e) => setEditedName(e.target.value)}
-                autoFocus
-              />
+              <div className={styles.renameInputWrap}>
+                <input
+                  className={styles.renameInput}
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  onKeyDown={(e) => {
+                    // no visible Cancel button anymore (see CSS comment) —
+                    // Escape still backs out, Enter still confirms, same as
+                    // before, just off the keyboard instead of a click
+                    if (e.key === "Escape") handleCancelEdit();
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleSaveRename();
+                    }
+                  }}
+                  autoFocus
+                />
+                <span className={styles.renameInputIcon} aria-hidden="true">
+                  ✎
+                </span>
+              </div>
               <button
                 type="button"
-                className={styles.addBtn}
+                className={styles.confirmRenameBtn}
                 onClick={handleSaveRename}
                 disabled={!editedName.trim()}
+                aria-label="Save workout name"
               >
-                Save
-              </button>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={handleCancelEdit}
-              >
-                Cancel
+                ✓
               </button>
             </div>
           ) : (

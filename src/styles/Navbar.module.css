@@ -19,16 +19,16 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.1rem;
 }
 
 .logoImg {
   height: 32px;
   width: auto;
+  margin-right: -4px
 }
 
 .brandName {
-  font-size: 1.3rem;
+  font-size: 1.5rem;
   font-weight: 600;
   color: var(--text-primary);
 }

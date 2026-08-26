@@ -9,9 +9,9 @@ const pool = require('./db-pg')
 // user's count, so it depends on TIERS staying sorted ascending by threshold.
 const TIERS = [
   { tier: 1, threshold: 1,   name: 'First PR', icon: '🎯' },
-  { tier: 2, threshold: 5,   name: 'Pace Setter', icon: '💪' },
+  { tier: 2, threshold: 2,   name: 'Pace Setter', icon: '💪' },
   { tier: 3, threshold: 10,  name: 'Groundbreaker', icon: '🔥' },
-  { tier: 4, threshold: 25,  name: 'Defying Expectations', icon: '🦍' },
+  { tier: 4, threshold: 25,  name: 'Silverback', icon: '🦍' },
   { tier: 5, threshold: 40,  name: 'Unstoppable', icon: '🚀' },
   { tier: 6, threshold: 65,  name: 'EYES IN THE SKY, GAZING FAR..', icon: '👹' },
   { tier: 7, threshold: 100, name: 'Goat.', icon: '🐐' },
