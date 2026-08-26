@@ -24,8 +24,8 @@ import {
 import styles from "../styles/AnalyticsSection.module.css";
 
 const TIME_RANGE_OPTIONS = [
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
+  { value: "week", label: "Weekly" },
+  { value: "month", label: "Monthly" },
   { value: "all", label: "All Time" },
 ];
 

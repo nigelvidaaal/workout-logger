@@ -3,6 +3,10 @@
   margin: 0 auto;
 }
 
+.h1 {
+  margin: 10px
+}
+
 .toggleRow {
   display: flex;
   flex-wrap: wrap;
@@ -30,6 +34,43 @@
   border-color: var(--accent);
   color: var(--text-primary);
   font-weight: 500;
+}
+
+/* CLAUDE CODE — bug fix: on narrow phones (iPhone-width viewports, roughly
+   <=480px) the 4 buttons in the range .toggleRow (Today/This Week/This
+   Month/All Time) didn't fit on one line at their natural (content-sized)
+   width. flex-wrap: wrap then dropped "All Time" onto its own line, left-
+   aligned with empty space next to it — misaligned instead of a clean row.
+   Below this width we switch every .toggleRow to flex-wrap: nowrap and
+   make every .toggleBtn an equal-width flex item (flex: 1 1 0 + min-width:
+   0 so they're actually allowed to shrink) — however many buttons are in a
+   given row (4 here, 2 for the Front/Back row below), they split it evenly
+   and always stay on one aligned line. Verified in a standalone repro
+   (Playwright screenshots) at 474px (the width Nigel reported breaking),
+   430px, 390px, and 320px (iPhone SE) — the second, tighter breakpoint
+   below is what keeps "This Month" etc. from truncating with an ellipsis
+   at the narrowest of those. */
+@media (max-width: 480px) {
+  .toggleRow {
+    flex-wrap: nowrap;
+  }
+
+  .toggleBtn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.5rem 0.4rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 360px) {
+  .toggleBtn {
+    padding: 0.5rem 0.15rem;
+    font-size: 0.68rem;
+  }
 }
 
 .layout {

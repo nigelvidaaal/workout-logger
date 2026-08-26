@@ -8,8 +8,8 @@ import styles from "../styles/MuscleChart.module.css";
 
 const RANGE_OPTIONS = [
   { value: "today", label: "Today" },
-  { value: "week", label: "This Week" },
-  { value: "month", label: "This Month" },
+  { value: "week", label: "Weekly" },
+  { value: "month", label: "Monthly" },
   { value: "all", label: "All Time" },
 ];
 
@@ -51,14 +51,13 @@ export function MuscleChart() {
 
   const intensityByGroup = {};
   for (const group of MUSCLE_GROUPS) {
-    intensityByGroup[group.value] = maxTonnage > 0
-      ? (tonnageByGroup[group.value] ?? 0) / maxTonnage
-      : 0;
+    intensityByGroup[group.value] =
+      maxTonnage > 0 ? (tonnageByGroup[group.value] ?? 0) / maxTonnage : 0;
   }
 
   return (
     <div className={styles.container}>
-      <h1>Muscle Chart</h1>
+      <h1 className={styles.h1}>Muscle Chart</h1>
 
       {/* toggle rows render unconditionally — even during a refetch — so the
           active selection stays visible instead of flickering away on every click */}
@@ -104,7 +103,10 @@ export function MuscleChart() {
 
           <div className={styles.layout}>
             <div className={styles.chartWrap}>
-              <MuscleBodyChart view={view} intensityByGroup={intensityByGroup} />
+              <MuscleBodyChart
+                view={view}
+                intensityByGroup={intensityByGroup}
+              />
             </div>
 
             <div className={styles.legend}>
@@ -113,7 +115,9 @@ export function MuscleChart() {
                   <span className={styles.legendName}>
                     <span
                       className={styles.legendSwatch}
-                      style={{ background: getFill(group.value, intensityByGroup) }}
+                      style={{
+                        background: getFill(group.value, intensityByGroup),
+                      }}
                     />
                     {group.label}
                   </span>
