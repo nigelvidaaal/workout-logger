@@ -1,34 +1,74 @@
-.container {
-  max-width: 400px;
-  margin: 4rem auto;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--border-radius);
-  padding: 2rem;
+/* CLAUDE CODE — redesigned to match the reference mockup Nigel shared,
+   using ONLY this app's existing color tokens (var(--bg-card), var(--accent),
+   etc. from index.css) instead of the mockup's own hardcoded colors — the
+   whole point was to look like the mockup while staying consistent with
+   the rest of the app's palette. Shared by Login.jsx AND Register.jsx. */
+
+/* CLAUDE CODE — Navbar no longer renders on this page at all (App.jsx),
+   so there's a full 100vh to center in now, not 100vh minus a bar */
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
 }
 
-.title {
-  font-size: 1.6rem;
-  font-weight: 600;
-  margin-bottom: 1.5rem;
+.card {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* CLAUDE CODE — no more dark tile/glow box around it (that was a decorative
+   wrapper); just the actual logo file straight from /public, sized big */
+.logoImg {
+  height: 100px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-bottom: 2rem;
   text-align: center;
 }
 
 .form {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
 }
 
 .input {
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--border-radius);
+  border-radius: 12px;
   color: var(--text-primary);
-  padding: 0.7rem 1rem;
+  padding: 0.85rem 1rem;
   font-size: 0.95rem;
   font-family: inherit;
   width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
 
 .input:focus {
@@ -37,19 +77,21 @@
 }
 
 .error {
-  color: var(--accent);
+  color: var(--danger);
   font-size: 0.85rem;
   text-align: center;
+  margin: -0.5rem 0 0;
 }
 
 .submitBtn {
   background: var(--accent);
   color: var(--text-primary);
   border: none;
-  border-radius: var(--border-radius);
-  padding: 0.7rem;
-  font-size: 0.95rem;
-  font-weight: 500;
+  border-radius: 999px;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
   transition: background 0.15s;
 }
 
@@ -64,11 +106,34 @@
 
 .link {
   text-align: center;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
   font-size: 0.9rem;
   color: var(--text-secondary);
 }
 
 .link a {
   color: var(--accent);
+}
+
+/* CLAUDE CODE — failed-login feedback: the form shakes once and every
+   input's border/ring turns red, staying red until the next attempt.
+   Applied to the <form> itself (not each input individually) so the
+   whole "container" shakes together, per what was asked for. */
+.formError {
+  animation: shake 0.4s ease;
+}
+
+/* descendant selector — .formError's own border doesn't show (the form
+   has no visible border), but this reaches into both inputs at once so
+   they highlight together rather than needing the class on each one */
+.formError .input {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 1px var(--danger);
+}
+
+@keyframes shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-4px); }
+  40%, 60% { transform: translateX(4px); }
 }

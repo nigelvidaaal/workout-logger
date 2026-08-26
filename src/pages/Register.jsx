@@ -36,37 +36,66 @@ export function Register() {
   }
 
   return (
-    <div className={styles.container}>
-      <h1 className={styles.title}>Let's Workout!</h1>
-      <form onSubmit={handleSubmit} className={styles.form}>
-        <input
-          className={styles.input}
-          name="username"
-          value={formData.username}
-          onChange={handleChange}
-          placeholder="Username"
-          required
+    // CLAUDE CODE — Auth.module.css was redesigned for Login's new look
+    // (Nigel's mockup); .container/.title don't exist in it anymore, so
+    // this got the same .page/.card/.logoImg structure to match —
+    // otherwise this page would render unstyled. No behavior changed here,
+    // layout/classes only.
+    <div className={styles.page}>
+      <div className={styles.card}>
+        <img
+          src="/persist_logo_trans.png"
+          alt="Persist logo"
+          className={styles.logoImg}
         />
-        <input
-          className={styles.input}
-          type="password"
-          name="password"
-          value={formData.password}
-          onChange={handleChange}
-          placeholder="Password"
-          required
-        />
-        {error && <p className={styles.error}>{error}</p>}
-        <button
-          type="submit"
-          className={styles.submitBtn}
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Registering in..." : "Register"}
-        </button>
-      </form>
-      <div className={styles.link}>
-        <Link to="/login">Already have an account? Login</Link>
+        <p className={styles.subtitle}>Let's Workout!</p>
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="username">
+              Username
+            </label>
+            <input
+              id="username"
+              className={styles.input}
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              placeholder="Username"
+              required
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              className={styles.input}
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Password"
+              required
+            />
+          </div>
+
+          {error && <p className={styles.error}>{error}</p>}
+
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Registering in..." : "Register"}
+          </button>
+        </form>
+
+        <div className={styles.link}>
+          <Link to="/login">Already have an account? Login</Link>
+        </div>
       </div>
     </div>
   );

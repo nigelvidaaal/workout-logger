@@ -9,7 +9,14 @@
   --bg-primary: #0a0a0a;
   --bg-secondary: #121212;    /* nav bar / secondary opaque surface, one step up from canvas */
   --bg-card: #1f1f1f;         /* primary container panels — solid charcoal grey */
-  /* glass container */
+  /* CLAUDE CODE — Phase 3 Part 4: a "glass container" look for the outer
+     Dashboard panels, WITHOUT any real translucency/blur (see the note
+     above — every surface in this app stays fully opaque). It's one step
+     lighter than --bg-card so an outer glass panel and the plain cards
+     nested inside it (achievement cards, PR cards, etc.) read as two
+     distinct layers instead of blending flat. The "glass" effect itself
+     comes from a subtle gradient sheen (.glass in Dashboard.module.css),
+     not from seeing through to whatever's behind it. */
   --bg-glass: #262626;
   --accent: #F9740D;          /* matches the logo's exact orange — PR badges, streak icons, key indicators */
   --accent-hover: #DB660D;
@@ -18,6 +25,7 @@
   --text-muted: #707070;
   --border: #2c2c2c;          /* neutral grey, no blue tint — minimal borders for definition only */
   --success: #1D9E75;
+  --danger: #FF4D4D;          /* CLAUDE CODE — login error highlighting (red input ring + text) */
   --border-radius: 8px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
@@ -52,6 +60,25 @@ button {
 .contentRow {
   display: flex;
   padding-top: 60px;
+}
+
+/* CLAUDE CODE — Login/Register hide the Navbar entirely (App.jsx), so
+   there's no 60px bar left to clear anymore */
+.noNavbar {
+  padding-top: 0;
+}
+
+/* CLAUDE CODE — bug fix: this was the source of the unwanted scrollbar on
+   Login/Register. main's own rule below still adds its normal "2rem 1.5rem"
+   padding on EVERY page — that's fine everywhere else, but Auth.module.css's
+   .page already does its own centering with min-height: 100vh PLUS its own
+   padding. Stacking main's ~64px of extra top+bottom padding on top of a
+   box that's already exactly 100vh tall pushed the total past the actual
+   viewport height, forcing a scrollbar even though nothing looked like it
+   needed one. Dropping main's padding here (only on these two full-screen
+   pages) lets .page's own 100vh be the whole story again. */
+.noPadding {
+  padding: 0;
 }
 
 main {

@@ -1,0 +1,70 @@
+/* CLAUDE CODE — see LoginTransition.jsx for the phase timeline this pairs with */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* above the Navbar (z-index: 20) and BottomNav (z-index: 20) — both can
+     start rendering underneath this the instant login() sets `user` in
+     AuthContext, but this overlay hides that entirely until navigate()
+     swaps the page out from under it */
+  z-index: 100;
+  overflow: hidden;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.logo {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(0.6);
+  animation: logoIn 0.5s ease forwards;
+}
+
+@keyframes logoIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* CLAUDE CODE — phase 3 ("fadeOut"), simplified per Nigel: after trying a
+   few more elaborate transitions (zooming into the logo's star, a
+   yellow/star-hole reveal, a left-to-right star trail), the final call was
+   to keep it real simple — the logo just fades back out, then the page
+   underneath swaps to Dashboard.
+   Explicitly declaring `opacity: 1` here (not relying on logoIn's
+   finished, now-discarded "forwards" state) matters for the same reason
+   it did in an earlier version of this file: swapping the `animation`
+   shorthand from logoIn to logoFadeOut is a brand-new animation instance,
+   and since logoFadeOut's own keyframes never mention a starting opacity,
+   it would otherwise fall back to .logo's base `opacity: 0` and the image
+   would vanish instantly instead of fading. */
+.logoFadeOut {
+  opacity: 1;
+  animation: logoFadeOut 0.5s ease forwards;
+}
+
+@keyframes logoFadeOut {
+  to {
+    opacity: 0;
+  }
+}

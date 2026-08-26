@@ -29,7 +29,7 @@ test("renders username and password inputs", () => {
   // getByPlaceholderText finds inputs by their placeholder attribute
   expect(screen.getByPlaceholderText("Username")).toBeInTheDocument();
   expect(screen.getByPlaceholderText("Password")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Login" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Log In" })).toBeInTheDocument();
 });
 
 test("shows error message when login fails", async () => {
@@ -51,7 +51,7 @@ test("shows error message when login fails", async () => {
   await user.type(screen.getByPlaceholderText("Password"), "wrongpassword");
 
   // click the submit button
-  await user.click(screen.getByRole("button", { name: "Login" }));
+  await user.click(screen.getByRole("button", { name: "Log In" }));
 
   // error message should now be visible
   expect(screen.getByText("Invalid credentials")).toBeInTheDocument();

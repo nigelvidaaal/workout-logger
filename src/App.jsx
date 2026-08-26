@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -28,18 +28,30 @@ function App() {
   // ProtectedRoute anyway, so all three only render once someone's logged in
   const { user } = useAuth();
 
+  // CLAUDE CODE — Login/Register get the full-screen mockup look with no
+  // top bar at all, rather than the Navbar's Login/Register links sitting
+  // redundantly above the Login/Register FORM. Applied to both (not just
+  // Login) since they share the same redesigned Auth.module.css — showing
+  // the bar on one but not the other would look like a layout regression
+  // when navigating between them.
+  const location = useLocation();
+  const hideNavbar =
+    location.pathname === "/login" || location.pathname === "/register";
+
   return (
     <>
-      {/* Navbar renders on every page regardless of route */}
-      <Navbar aiOpen={aiOpen} onToggleAI={toggleAI} />
+      {/* Navbar renders on every page EXCEPT the full-screen auth pages */}
+      {!hideNavbar && <Navbar aiOpen={aiOpen} onToggleAI={toggleAI} />}
       {user && <AIHelper isOpen={aiOpen} onClose={() => setAiOpen(false)} />}
       {user && <BottomNav aiOpen={aiOpen} onToggleAI={toggleAI} />}
       {/* contentRow (index.css) lays Sidebar + main out side by side on
           desktop; Sidebar's own CSS hides it below 641px, so on mobile this
-          is just <main> alone, unchanged from before */}
-      <div className="contentRow">
+          is just <main> alone, unchanged from before. noNavbar drops the
+          top padding that normally clears the fixed Navbar — there's
+          nothing to clear when it isn't rendered. */}
+      <div className={hideNavbar ? "contentRow noNavbar" : "contentRow"}>
         {user && <Sidebar />}
-        <main>
+        <main className={hideNavbar ? "noPadding" : undefined}>
           <Routes>
             {/* public routes — anyone can access these */}
             <Route path="/login" element={<Login />} />
