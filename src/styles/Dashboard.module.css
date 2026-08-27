@@ -52,17 +52,23 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* CLAUDE CODE — CHANGE 2 (part 1) redesign: rectangular cards (soft
+   corners via var(--border-radius), same as every other container in the
+   app) with the tier's own picture as a blurred backdrop and the tier name
+   in accent orange over top — the blur is what makes the orange text
+   legible regardless of what's in the source image, rather than needing a
+   separate dark overlay. */
 .achievementCard {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  background: var(--bg-card);
-  border-radius: var(--border-radius);
-  border: 1px solid var(--border);
+  position: relative;
   /* fixed basis so cards keep their width in a flex row instead of
      stretching/shrinking to fill the line the way grid items would */
-  flex: 0 0 200px;
+  flex: 0 0 340px;
+  height: 110px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border);
+  /* clips the blurred image (scaled up slightly below) to the card's own
+     rounded corners */
+  overflow: hidden;
   scroll-snap-align: start;
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
@@ -71,6 +77,38 @@
 .achievementCard:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
+}
+
+.achievementImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* scaled up so the blur's soft edge doesn't reveal a sliver of
+     unblurred/transparent pixels at the card's own border */
+  transform: scale(1);
+  filter: blur(2px) brightness(0.65);
+}
+
+.achievementName {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 0 1rem;
+  text-align: center;
+  color: var(--accent);
+  /* CLAUDE CODE — Chakra Petch Medium, per Nigel's spec for achievement
+     tier names specifically (the font-family itself is now global — see
+     index.css body) */
+  font-weight: 500;
+  font-size: 2.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 /* trailing "More →" card — same footprint as an achievement card so it
@@ -82,11 +120,11 @@
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  padding: 1rem;
+  height: 110px;
   background: transparent;
   border-radius: var(--border-radius);
   border: 1px dashed var(--border);
-  flex: 0 0 200px;
+  flex: 0 0 340px;
   scroll-snap-align: start;
   color: var(--text-secondary);
   font-weight: 500;
@@ -96,22 +134,6 @@
 .moreCard:hover {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.icon {
-  font-size: 2rem;
-}
-
-.achievementName {
-  font-weight: 600;
-  margin: 0;
-}
-
-.achievementExercise {
-  font-size: 0.85rem;
-  color: var(--text-muted);       
-  margin: 0;
-  text-transform: capitalize;
 }
 
 /* Muscle Balance — Phase 3 Part 2: every group shown at once (no more
@@ -205,11 +227,14 @@
     padding: 1.5rem 1rem;
   }
 
-  /* narrower cards on small screens so part of the next one peeks into
-     view — a visual hint that the row scrolls */
+  /* CLAUDE CODE — narrower than the 340px desktop width so part of the
+     next card still peeks into view (a visual hint that the row scrolls),
+     but wide enough for the 1.7rem tier-name text — including the longest
+     one, "EYES IN THE SKY, GAZING FAR.." — to stay readable rather than
+     wrapping awkwardly. */
   .achievementCard,
   .moreCard {
-    flex-basis: 170px;
+    flex-basis: 260px;
   }
 
   /* less side padding on the glass panels so they don't eat into the

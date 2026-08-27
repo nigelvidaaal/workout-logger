@@ -12,6 +12,22 @@ import { HistoryCalendar } from "../components/HistoryCalendar"; // Phase 3 Part
 import { buildMuscleBalance } from "../utils/muscleBalance"; // Phase 3 Part 2 — sets/week per group, all 10 shown
 import styles from "../styles/Dashboard.module.css";
 
+// CLAUDE CODE — CHANGE 2 (part 1): background image for each achievement
+// tier's card, from /public/achievements picture/. Nigel renamed the files
+// to tier_1..tier_7 (matching server/achievements.js's TIERS by number
+// instead of by name), so this no longer needs to account for casing/
+// spacing/punctuation mismatches — just the file extension, which is still
+// a mix of .png/.jpg tier to tier.
+const TIER_IMAGES = {
+  1: "/achievements picture/tier_1.png",
+  2: "/achievements picture/tier_2.png",
+  3: "/achievements picture/tier_3.jpg",
+  4: "/achievements picture/tier_4.png",
+  5: "/achievements picture/tier_5.jpg",
+  6: "/achievements picture/tier_6.jpg",
+  7: "/achievements picture/tier_7.png",
+};
+
 export function Dashboard() {
   // two separate pieces of data, two state variables
   const [achievements, setAchievements] = useState([]);
@@ -117,16 +133,24 @@ export function Dashboard() {
   // gradient color; no more top-3/bottom-3 split (see muscleBalance.js)
   const muscleBalance = buildMuscleBalance(muscleSets);
 
-  // NEW — "major" achievements = highest tier first (tier 7 "Goat." is the
-  // most impressive, tier 1 "First PR" the least — see server/achievements.js),
-  // not chronological, so the row leads with your best unlocks rather than
-  // just whatever happened most recently. Capped so the scroll row stays a
-  // quick skim; a "More" card appears whenever there's more to see.
+  // CLAUDE CODE — CHANGE 2 (part 1): `achievements` is a flat list of
+  // unlock ROWS — one per user+exercise+tier, since the server tracks PRs
+  // (and therefore tier unlocks) separately per exercise. That used to mean
+  // the same tier (e.g. "First PR") could show up as several near-identical
+  // cards, once per exercise that earned it. Per Nigel: showcase the
+  // ACHIEVEMENT itself, not each exercise instance of it — so dedupe down
+  // to one card per distinct tier the user has EVER unlocked (whichever
+  // exercise's row happens to be first is fine, since every row for the
+  // same tier has the same name/icon anyway), highest tier first.
   const MAX_ACHIEVEMENTS_SHOWN = 6;
-  const majorAchievements = [...achievements]
+  const unlockedTiers = new Map();
+  for (const a of achievements) {
+    if (!unlockedTiers.has(a.tier)) unlockedTiers.set(a.tier, a);
+  }
+  const majorAchievements = [...unlockedTiers.values()]
     .sort((a, b) => b.tier - a.tier)
     .slice(0, MAX_ACHIEVEMENTS_SHOWN);
-  const hasMoreAchievements = achievements.length > MAX_ACHIEVEMENTS_SHOWN;
+  const hasMoreAchievements = unlockedTiers.size > MAX_ACHIEVEMENTS_SHOWN;
 
   // page date header
   const todayLabel = new Date().toLocaleDateString("en-US", {
@@ -164,19 +188,20 @@ export function Dashboard() {
         <div className={styles.achievementGrid}>
           {majorAchievements.map((a) => (
             <div
-              key={a.id}
+              key={a.tier}
               className={styles.achievementCard}
-              // navigate to "/prs", passing this achievement's exercise name
-              // along so PRsPage knows which exercise card to auto-open.
-              onClick={() => {
-                navigate("/prs", { state: { exerciseName: a.exercise_name } });
-              }}
+              // CLAUDE CODE — no longer tied to one specific exercise (this
+              // card now represents the TIER itself, which any number of
+              // exercises may have earned) — plain /prs, same as the
+              // "More" card below
+              onClick={() => navigate("/prs")}
             >
-              <span className={styles.icon}>{a.icon}</span>
-              <div>
-                <p className={styles.achievementName}>{a.name}</p>
-                <p className={styles.achievementExercise}>{a.exercise_name}</p>
-              </div>
+              <img
+                src={encodeURI(TIER_IMAGES[a.tier])}
+                alt=""
+                className={styles.achievementImage}
+              />
+              <p className={styles.achievementName}>{a.name}</p>
             </div>
           ))}
           {/* trailing card — only shows once there's more than fits above.

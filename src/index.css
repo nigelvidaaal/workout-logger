@@ -31,7 +31,10 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* CLAUDE CODE — CHANGE 2: swapped from Inter to Chakra Petch (loaded in
+     index.html) — Nigel's call to use it for every bit of text in the app,
+     not just the achievement tier names it was originally requested for */
+  font-family: 'Chakra Petch', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: var(--text-primary);
   min-height: 100vh;
   background:
