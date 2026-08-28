@@ -1,59 +1,93 @@
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
 }
 
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-  margin-top: 1rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+/* CLAUDE CODE — CHANGE 2 (part 2): same rectangular blurred-image card
+   language as Dashboard.module.css's .achievementGrid/.achievementCard, but
+   stacked vertically (full-width rows, First PR to Goat top-to-bottom)
+   instead of a horizontally-scrolling row — per Nigel: "it should be
+   'stacked' like the image provided". Kept as its own copy (not a shared
+   class) since CSS Modules scope per-file already; Nigel may re-tune these
+   values directly, same as he did on the Dashboard versions. */
+.tierGrid {
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
   margin-top: 1.5rem;
 }
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+.tierCard {
+  position: relative;
+  width: 100%;
+  height: 110px;
   border-radius: var(--border-radius);
-  padding: 1.25rem;
+  border: 1px solid var(--border);
+  overflow: hidden;
   cursor: pointer;
   transition: transform 0.15s, border-color 0.15s;
 }
 
-.card:hover {
+.tierCard:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
 }
 
-.cardName {
-  font-size: 1.05rem;
-  font-weight: 600;
-  text-transform: capitalize;
-  margin-bottom: 0.75rem;
+.tierImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1);
+  filter: blur(2px) brightness(0.65);
 }
 
-.cardMeta {
+.tierName {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.85rem;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 0 1rem;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 500;
+  font-size: 2.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
-.topBadge {
-  font-size: 1.2rem;
+/* locked = no exercise has hit this tier yet — dimmed image, grey name
+   (per Nigel: "it will be 'locked' like the font would be grey"), no
+   click-through since there's nothing to list in the modal */
+.tierCardLocked {
+  cursor: default;
 }
 
-.count {
-  color: var(--text-secondary);
+.tierCardLocked:hover {
+  border-color: var(--border);
+  transform: none;
 }
 
-@media (max-width: 640px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
+.tierCardLocked .tierImage {
+  filter: blur(2px) brightness(0.4) grayscale(1);
 }
+
+.tierCardLocked .tierName {
+  color: var(--text-muted);
+}
+
+.lockedBadge {
+  position: absolute;
+  z-index: 1;
+  top: 0.6rem;
+  right: 0.75rem;
+  font-size: 0.95rem;
+}
+
+/* CLAUDE CODE — no mobile flex-basis override needed here (unlike
+   Dashboard's horizontally-scrolling row): .tierCard is already full-width
+   at every breakpoint since this is a vertical stack. */

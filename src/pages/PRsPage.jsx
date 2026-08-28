@@ -1,23 +1,40 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom"; // NEW — reads what Dashboard.jsx passed via navigate()
 import { useAuth } from "../context/AuthContext";
-import { getPRSummary } from "../api/workouts";
-import { ExerciseModal } from "../components/ExerciseModal";
+import { getPRSummary, getTiers } from "../api/workouts";
+import { TierModal } from "../components/TierModal";
 import styles from "../styles/PRsPage.module.css";
+
+// CLAUDE CODE — CHANGE 2 (part 2): same tier-number -> image mapping as
+// Dashboard.jsx's achievement cards. Kept local rather than shared since
+// there's no shared-constants file for the frontend yet — worth extracting
+// if a third page ends up needing it.
+const TIER_IMAGES = {
+  1: "/achievements picture/tier_1.png",
+  2: "/achievements picture/tier_2.png",
+  3: "/achievements picture/tier_3.jpg",
+  4: "/achievements picture/tier_4.png",
+  5: "/achievements picture/tier_5.jpg",
+  6: "/achievements picture/tier_6.jpg",
+  7: "/achievements picture/tier_7.png",
+};
 
 export function PRsPage() {
   const [exercises, setExercises] = useState([]);
+  const [tiers, setTiers] = useState([]); // NEW — full tier rule list, same as Dashboard
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [selectedTier, setSelectedTier] = useState(null); // NEW — a tier object, not an exercise
   const { token } = useAuth();
-  const location = useLocation(); // NEW
 
   useEffect(() => {
     async function load() {
       try {
-        const data = await getPRSummary(token);
-        setExercises(data);
+        const [exercisesData, tiersData] = await Promise.all([
+          getPRSummary(token),
+          getTiers(token),
+        ]);
+        setExercises(exercisesData);
+        setTiers(tiersData);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -28,71 +45,70 @@ export function PRsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    // bail out if there's nothing to look for — location.state is undefined
-    // unless navigate() was called WITH a state object (typing the URL,
-    // clicking "PRs" in the navbar both leave it undefined).
-    if (!location.state?.exerciseName) {
-      return;
-    }
-
-    // find the matching exercise in the array that's already loaded, compared
-    // case-insensitively — the achievement's exercise name and this list's
-    // exercise name
-    const match = exercises.find(
-      (ex) =>
-        ex.exercise_name.toLowerCase() ===
-        location.state.exerciseName.toLowerCase(),
-    );
-
-    // if nothing matched (exercises hasn't finished loading yet on this
-    // particular render, or something genuinely doesn't exist), do nothing —
-    // this effect runs again once `exercises` updates, per the deps below.
-    if (match) {
-      // eslint-disable-next-line
-      setSelectedExercise(match);
-    }
-  }, [exercises, location.state]);
+  // CLAUDE CODE — CHANGE 2 (part 2): given a tier number, returns every
+  // exercise that has unlocked it (an exercise "hits" a tier if that tier
+  // shows up in its own achievements array — see server/routes/workouts.js
+  // pr-summary), enriched with best weight + total PR count so the modal
+  // has more to show than just a bare name.
+  function getExercisesForTier(tierNumber) {
+    return exercises
+      .filter((ex) => ex.achievements.some((a) => a.tier === tierNumber))
+      .map((ex) => ({
+        exercise_name: ex.exercise_name,
+        best: ex.prs.reduce((max, pr) => Math.max(max, pr.weight), 0),
+        count: ex.prs.length,
+      }))
+      .sort((a, b) => b.best - a.best); // heaviest lift first
+  }
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
+
+  // CLAUDE CODE — CHANGE 2 (part 2): this page used to be exercise-first (a
+  // grid of exercises; clicking one opened ITS badges/PRs). Nigel's new
+  // design flips it to tier-first: every one of the 7 tiers always gets a
+  // card; clicking an unlocked one pops a modal listing which exercises
+  // earned it, instead of the old per-exercise modal. Unlike the Dashboard's
+  // horizontally-scrolling achievement row, this is a vertical stack running
+  // First PR (lowest tier) at the top down to Goat (highest) at the bottom —
+  // ascending order, opposite of Dashboard's.
+  const allTierCards = [...tiers].sort((a, b) => a.tier - b.tier);
 
   return (
     <div className={styles.container}>
       <h1>Personal Records</h1>
 
-      {exercises.length === 0 && (
-        <p className={styles.empty}>No PRs yet. Let's go hit one!</p>
-      )}
-
-      <div className={styles.grid}>
-        {exercises.map((ex) => (
-          <div
-            key={ex.exercise_name}
-            className={styles.card}
-            onClick={() => setSelectedExercise(ex)}
-          >
-            <h3 className={styles.cardName}>{ex.exercise_name}</h3>
-
-            {/* preview: top badge icon + counts */}
-            <div className={styles.cardMeta}>
-              {ex.achievements.length > 0 && (
-                <span className={styles.topBadge}>
-                  {ex.achievements[ex.achievements.length - 1].icon}
-                </span>
+      <div className={styles.tierGrid}>
+        {allTierCards.map((t) => {
+          const qualifying = getExercisesForTier(t.tier);
+          const unlocked = qualifying.length > 0;
+          return (
+            <div
+              key={t.tier}
+              className={`${styles.tierCard} ${unlocked ? "" : styles.tierCardLocked}`}
+              // locked tiers have no exercises to show — nothing to click
+              // through to
+              onClick={unlocked ? () => setSelectedTier(t) : undefined}
+            >
+              <img
+                src={encodeURI(TIER_IMAGES[t.tier])}
+                alt=""
+                className={styles.tierImage}
+              />
+              <p className={styles.tierName}>{t.name}</p>
+              {!unlocked && (
+                <span className={styles.lockedBadge} aria-hidden="true"></span>
               )}
-              <span className={styles.count}>{ex.prs.length} PRs</span>
-              <span className={styles.count}>
-                {ex.achievements.length} badges
-              </span>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {selectedExercise && (
-        <ExerciseModal
-          exercise={selectedExercise}
-          onClose={() => setSelectedExercise(null)}
+
+      {selectedTier && (
+        <TierModal
+          tier={selectedTier}
+          exercises={getExercisesForTier(selectedTier.tier)}
+          onClose={() => setSelectedTier(null)}
         />
       )}
     </div>

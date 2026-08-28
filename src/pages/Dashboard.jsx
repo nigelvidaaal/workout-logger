@@ -265,14 +265,12 @@ export function Dashboard() {
                   <span className={styles.prExercise}>
                     {group.exercise_name}
                   </span>
-                  <span className={styles.prBest}>Best: {group.best}kg</span>
+                  <span className={styles.prBest}>Best: {group.best} lbs</span>
                 </div>
                 <div className={styles.prCardFooter}>
                   <span className={styles.prCount}>{group.count} PRs</span>
                   {progress.maxed ? (
-                    <span className={styles.prNext}>
-                      🏆 All tiers unlocked!
-                    </span>
+                    <span className={styles.prNext}>All tiers unlocked!</span>
                   ) : (
                     <span className={styles.prNext}>
                       {progress.nextIcon} {progress.remaining} more to{" "}

@@ -8,13 +8,13 @@ const pool = require('./db-pg')
 // scans this array in order looking for the first threshold greater than the
 // user's count, so it depends on TIERS staying sorted ascending by threshold.
 const TIERS = [
-  { tier: 1, threshold: 1,   name: 'First PR', icon: '🎯' },
-  { tier: 2, threshold: 2,   name: 'Pace Setter', icon: '💪' },
-  { tier: 3, threshold: 10,  name: 'Groundbreaker', icon: '🔥' },
-  { tier: 4, threshold: 25,  name: 'Silverback', icon: '🦍' },
-  { tier: 5, threshold: 40,  name: 'Unstoppable', icon: '🚀' },
-  { tier: 6, threshold: 65,  name: 'EYES IN THE SKY, GAZING FAR..', icon: '👹' },
-  { tier: 7, threshold: 100, name: 'Goat.', icon: '🐐' },
+  { tier: 1, threshold: 1,   name: 'First PR' },
+  { tier: 2, threshold: 2,   name: 'Pace Setter'},
+  { tier: 3, threshold: 10,  name: 'Groundbreaker'},
+  { tier: 4, threshold: 25,  name: 'Silverback'},
+  { tier: 5, threshold: 40,  name: 'Unstoppable'},
+  { tier: 6, threshold: 65,  name: 'EYES IN THE SKY, GAZING FAR..'},
+  { tier: 7, threshold: 100, name: 'Goat.'},
 ]
 
 // checks PR count for one exercise and unlocks any newly-earned tiers.
