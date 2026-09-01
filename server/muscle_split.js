@@ -29,11 +29,14 @@ function computeMuscleVolume(rows) {
   return volume;
 }
 
-// same primary/secondary split as computeMuscleVolume above, just counting
-// SETS instead of summing weight*reps — feeds the Dashboard's Muscle
-// Balance boxes (Phase 3 Part 2: "10-20 sets/week" targets), which is a
-// different question than "how much weight did you move" (computeMuscleVolume,
-// still used by the anatomy chart on the Muscles page — untouched by this)
+// CLAUDE CODE — bug fix: Dashboard.jsx's Muscle Balance boxes ("Target:
+// 10-20 sets/week per muscle group") need SET COUNTS per group, not
+// tonnage — but there was no function or route computing that at all
+// (Dashboard called a getMuscleSets() that didn't even exist in
+// src/api/workouts.js — see that file's fix for the full story). This
+// mirrors computeMuscleVolume's exact primary/secondary weighting so a
+// set "counts" the same way toward a muscle group regardless of which
+// stat you're looking at, just summing set_count instead of tonnage.
 function computeMuscleSets(rows) {
   const sets = {};  // { chartGroup: totalSets }
 
@@ -46,15 +49,20 @@ function computeMuscleSets(rows) {
   for (const row of rows) {
     const setCount = Number(row.set_count);
 
-    // primary muscles get full credit per set
     for (const muscle of row.primary_muscles) {
       addToGroup(muscle, setCount);
     }
 
-    // secondary muscles get half credit — mirrors SECONDARY_WEIGHT above
     for (const muscle of row.secondary_muscles) {
       addToGroup(muscle, setCount * SECONDARY_WEIGHT);
     }
+  }
+
+  // round each group to a whole number — half-credit secondary muscles can
+  // leave fractional totals (e.g. 12.5), but "sets" reads as a count, not a
+  // measurement, so display-side always wants a whole number
+  for (const group of Object.keys(sets)) {
+    sets[group] = Math.round(sets[group]);
   }
 
   return sets;

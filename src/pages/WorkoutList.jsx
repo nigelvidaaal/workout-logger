@@ -1,28 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom"; //useNavigate, for after logging today's workout
+import { Link, useNavigate } from "react-router-dom"; // NEW — CLAUDE CODE bug fix
 import {
   getWorkouts,
   createWorkout,
   deleteWorkout,
-  logWorkoutToday,
+  logWorkoutToday, // NEW — CLAUDE CODE bug fix: see handleLogToday below
 } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
 import styles from "../styles/WorkoutList.module.css";
 
 export function WorkoutList() {
-  // workouts — array of SAVED WORKOUTS (templates) from the server
+  // workouts — array of workout objects from the server
   const [workouts, setWorkouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [name, setName] = useState("");
   // isCreating — true while form is submitting, prevents double submissions
   const [isCreating, setIsCreating] = useState(false);
-  // tracks which workout's "log today" request is in flight
+  // CLAUDE CODE — bug fix: which template's "Set as Workout for Today" is
+  // mid-request, keyed by template id, so only THAT card's button disables
+  // (not every card) and a double-click can't fire two clones at once
   const [loggingId, setLoggingId] = useState(null);
 
   // the server uses it to know whose workouts to fetch/create/delete
   const { token } = useAuth();
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // NEW
 
   useEffect(() => {
     fetchWorkouts();
@@ -72,15 +74,21 @@ export function WorkoutList() {
     }
   }
 
+  // CLAUDE CODE — bug fix: this was the actual root cause behind "not saving
+  // a workout" / workouts seeming to reset. "My Workouts" only ever listed
+  // TEMPLATES (see server/routes/workouts.js's GET '/'); the only way to
+  // reach a loggable, dated instance is POST /:id/log-today — but no button
+  // anywhere in the app ever called it. WorkoutDetail.jsx even had a message
+  // telling the user to "use 'Set as Workout for Today' from the list", and
+  // WorkoutList.module.css already had a fully-styled `.logTodayBtn` class —
+  // the button itself was just never added to the JSX. Wired it up here:
+  // clone today's dated workout from this template, then jump straight to
+  // it so the user lands somewhere they can actually add sets.
   async function handleLogToday(templateId) {
     try {
-      // this card's btn can show its own loading state
       setLoggingId(templateId);
-      // clone the template on the server — AWAIT it
-      // so we actually get the new dated workout back
-      const newWorkout = await logWorkoutToday(token, templateId);
-      // go straight to today's fresh copy, ready for sets — not back to this list
-      navigate(`/workouts/${newWorkout.id}`);
+      const dated = await logWorkoutToday(token, templateId);
+      navigate(`/workouts/${dated.id}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -95,7 +103,7 @@ export function WorkoutList() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1 className={styles.title}>Saved Workouts</h1>
+        <h1 className={styles.title}>My Workouts</h1>
       </div>
 
       {/* create workout form — single input, no formData object needed */}
@@ -118,34 +126,37 @@ export function WorkoutList() {
 
       {/* short circuit — show message if no workouts yet */}
       {workouts.length === 0 && (
-        <p className={styles.emptyMessage}>
-          No saved workouts yet. Add one above.
-        </p>
+        <p className={styles.emptyMessage}>No workouts yet. Add one above.</p>
       )}
 
       <div className={styles.workoutList}>
-        {/* map over workouts — each one is a card with a link, a "log today"
-            button, and a delete button */}
+        {/* map over workouts — each one is a card with a link and delete button */}
         {workouts.map((workout) => (
           <div key={workout.id} className={styles.workoutCard}>
             <div className={styles.workoutInfo}>
-              {/* Link builds the URL dynamically using each workout's id —
-                  clicking the name still opens it for editing the exercise list */}
+              {/* Link builds the URL dynamically using each workout's id */}
               <Link
                 to={`/workouts/${workout.id}`}
                 className={styles.workoutName}
               >
                 {workout.name}
               </Link>
+              {/* CLAUDE CODE — bug fix: templates have no date (date is
+                  explicitly NULL — see server POST '/'), so `new
+                  Date(workout.date)` was `new Date(null)`, which JS coerces
+                  to the Unix epoch — every card on this page was silently
+                  showing "Jan 1, 1970" here. The CSS for this span was
+                  already deleted (see WorkoutList.module.css's comment) but
+                  the JSX using it never was; removing it now for real. */}
             </div>
+            {/* CLAUDE CODE — bug fix: the missing "Set as Workout for
+                Today" button — see handleLogToday above */}
             <button
               className={styles.logTodayBtn}
               onClick={() => handleLogToday(workout.id)}
               disabled={loggingId === workout.id}
             >
-              {loggingId === workout.id
-                ? "Starting..."
-                : "Set as Workout for Today"}
+              {loggingId === workout.id ? "Starting..." : "Set as Workout for Today"}
             </button>
             <button
               className={styles.deleteBtn}

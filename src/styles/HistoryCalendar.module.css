@@ -55,14 +55,31 @@
   gap: 0.5rem;
 }
 
+/* CLAUDE CODE — bug fix: .day is now a <button> (a day with something
+   logged navigates to that workout) instead of a plain <div>, so it needs
+   the usual native-button reset on top of its existing layout rules. */
 .day {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.3rem;
+  width: 100%;
   padding: 0.5rem 0.25rem;
   border-radius: var(--border-radius);
   border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+  transition: border-color 0.15s;
+}
+
+.day:not(:disabled) {
+  cursor: pointer;
+}
+
+.day:not(:disabled):hover {
+  border-color: var(--accent);
 }
 
 .dayLabel {

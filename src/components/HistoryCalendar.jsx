@@ -3,6 +3,7 @@
 // day, with a dot on any day a workout was logged and a highlight on
 // today. weekOffset lets the user page backward through past weeks.
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom"; // NEW — CLAUDE CODE bug fix: lets a day link to its workout
 import { useAuth } from "../context/AuthContext";
 import { getWorkoutHistory } from "../api/workouts";
 import { buildHistoryWeek } from "../utils/historyWeek";
@@ -15,6 +16,7 @@ export function HistoryCalendar() {
   const [rawDays, setRawDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const { token } = useAuth();
+  const navigate = useNavigate(); // NEW
 
   useEffect(() => {
     // `cancelled` guards against a stale response overwriting a newer one —
@@ -97,19 +99,32 @@ export function HistoryCalendar() {
         <p className={styles.loading}>Loading...</p>
       ) : (
         <div className={styles.week}>
-          {week.map((day) => (
-            <div
-              key={day.date.toISOString()}
-              className={`${styles.day} ${day.isToday ? styles.today : ""}`}
-              title={`${day.setCount} ${day.setCount === 1 ? "set" : "sets"}`}
-            >
-              <span className={styles.dayLabel}>{day.dayLabel}</span>
-              <span className={styles.dayNumber}>{day.dayNumber}</span>
-              {day.hasWorkout && (
-                <span className={styles.dot} aria-hidden="true" />
-              )}
-            </div>
-          ))}
+          {week.map((day) => {
+            // CLAUDE CODE — bug fix: a day with a workout_id has SOMETHING
+            // logged for it (even just exercises with no sets yet, from
+            // "Set as Workout for Today") — clickable so the user always has
+            // a way back to it, instead of it becoming unreachable the
+            // moment they navigate away from WorkoutDetail.
+            const clickable = day.workoutId != null;
+            return (
+              <button
+                key={day.date.toISOString()}
+                type="button"
+                className={`${styles.day} ${day.isToday ? styles.today : ""}`}
+                title={`${day.setCount} ${day.setCount === 1 ? "set" : "sets"}`}
+                onClick={
+                  clickable ? () => navigate(`/workouts/${day.workoutId}`) : undefined
+                }
+                disabled={!clickable}
+              >
+                <span className={styles.dayLabel}>{day.dayLabel}</span>
+                <span className={styles.dayNumber}>{day.dayNumber}</span>
+                {day.hasWorkout && (
+                  <span className={styles.dot} aria-hidden="true" />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

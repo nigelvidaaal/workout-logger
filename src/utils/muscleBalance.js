@@ -1,58 +1,46 @@
-// this section tells the user of how many sets the muscles has worked out with. 
+// Turns raw per-muscle SET COUNTS into the Dashboard's Muscle Balance boxes:
+// every one of the 10 groups shown at once (Phase 3 Part 2 — no more
+// top-3/bottom-3 split), each with a color that ramps toward the app's
+// accent as it approaches the "Target: 10-20 sets/week" hint shown above
+// the grid.
+//
+// CLAUDE CODE — bug fix: this file previously still had the OLD
+// tonnage/mostTrained/needsWork implementation, from before the Phase 3
+// Part 2 redesign — but Dashboard.jsx (and its CSS/JSX comments) had
+// already moved on to expecting THIS shape: a flat array of all 10 groups,
+// each `{ value, label, setsPerWeek, color }`. Calling `.map()` on the old
+// `{ mostTrained, needsWork }` object crashed the Dashboard. setsByGroup is
+// what getMuscleSets() returns: { group: setsPerWeek }, only present for
+// groups with at least one logged, catalog-linked set this period —
+// untouched groups are simply missing keys, not present with a value of 0.
 import { MUSCLE_GROUPS } from '../constants/muscleGroups';
 
-// target sets - min and max
-const TARGET_MIN = 10; 
-const TARGET_MAX = 20; 
+// the low end of the target range — used as the "fully on target" point for
+// the color ramp. Going over 20 doesn't fade the color back down; hitting
+// the target and blowing past it isn't a problem worth flagging visually.
+const TARGET_LOW = 10;
 
-const COLOR_LOW = '#FFD700';  // gold — at/below TARGET_MIN
-const COLOR_HIGH = '#33FF33'; // green — at/above TARGET_MAX
+// grey (~var(--text-muted)) at 0 sets, ramping to the app's accent orange
+// (~var(--accent)) by the time a group hits TARGET_LOW sets/week
+const COLOR_FROM = [112, 112, 112];
+const COLOR_TO = [249, 116, 13];
 
-// return a hex color with the use of min and max vars above 
-function getSetsColor(setsPerWeek) {
-  // "how far between 10 and 20 is this number, as a 0-1 value?"
-  // (value - min) / (max - min) is the literal math-class formula for that.
-  const rawFraction = (setsPerWeek - TARGET_MIN) / (TARGET_MAX - TARGET_MIN);
-  // clamp, as it would go negative with just 10 
-  const fraction = Math.max(0, Math.min(1, rawFraction));
-
-  // cuts out portion of strings (1, 3)
-  // converts isolated string into a base 10 number (...), 16. parseInt reads it to hexadecimal 
-  const lowR = parseInt(COLOR_LOW.slice(1, 3), 16);
-  const lowG = parseInt(COLOR_LOW.slice(3, 5), 16);
-  const lowB = parseInt(COLOR_LOW.slice(5, 7), 16);
-  const highR = parseInt(COLOR_HIGH.slice(1, 3), 16);
-  const highG = parseInt(COLOR_HIGH.slice(3, 5), 16);
-  const highB = parseInt(COLOR_HIGH.slice(5, 7), 16);
-
-  // blend each channel toward "high" by `fraction`. This is the
-  // same shape 3 times: start at low, add the full low-to-high distance
-  // scaled down by fraction. At fraction 0 this is just `low`; at fraction
-  // 1 it's low + (high-low) = high; at 0.5 it's exactly the midpoint.
-  // Math.round() because color channels are whole numbers, not decimals.
-  const r = Math.round(lowR + (highR - lowR) * fraction);
-  const g = Math.round(lowG + (highG - lowG) * fraction);
-  const b = Math.round(lowB + (highB - lowB) * fraction);
-
-  // back to a "#RRGGBB" string. n.toString(16) converts a number
-  // to hex, but DROPS a leading zero it would otherwise need — 5 becomes
-  // "5", not "05". padStart(2, '0') means "pad the front of this string
-  // with '0' until it's at least 2 characters" — turning "5" into "05" but
-  // leaving an already-2-character "1a" untouched.
-  const toHex = (n) => n.toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+function colorForProgress(setsPerWeek) {
+  const progress = Math.min(setsPerWeek / TARGET_LOW, 1);
+  const [r, g, b] = COLOR_FROM.map((c, i) =>
+    Math.round(c + (COLOR_TO[i] - c) * progress),
+  );
+  return `rgb(${r}, ${g}, ${b})`;
 }
 
 export function buildMuscleBalance(setsByGroup) {
-  // every group shown now, not just a top-3/bottom-3 split — the whole
-  // point of a 10-20 target is seeing where EVERY muscle group sits
   return MUSCLE_GROUPS.map((group) => {
     const setsPerWeek = setsByGroup[group.value] ?? 0;
     return {
       value: group.value,
       label: group.label,
       setsPerWeek,
-      color: getSetsColor(setsPerWeek),
+      color: colorForProgress(setsPerWeek),
     };
   });
 }

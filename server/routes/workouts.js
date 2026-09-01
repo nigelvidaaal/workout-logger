@@ -6,29 +6,6 @@ const { computeMuscleVolume, computeMuscleSets } = require('../muscle_split')  /
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
 
-// shared by /muscle-volume and /muscle-sets below — both filter to the same
-// today|week|month|all windows, just aggregating a different number per set.
-// Lifted up here (was previously copy-pasted inside one route handler) so
-// there's exactly one place that defines what each range means.
-const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
-
-// w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
-// wall-clock (the session timezone at insert time, UTC on Neon). A single
-// AT TIME ZONE would misinterpret that naive UTC value as if it were already
-// APP_TIMEZONE-local — the double conversion below is required: first
-// reinterpret as UTC (naive -> timestamptz), then convert that instant into
-// APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
-// NOW() is already timestamptz, so it only needs the single conversion.
-function getRangeClause(range) {
-  const RANGE_CLAUSES = {
-    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
-    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
-    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
-    all: '',
-  }
-  return RANGE_CLAUSES[range]
-}
-
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
 function groupExercisesWithSets(rows) {
 
@@ -137,6 +114,28 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
       [id]
     )
 
+    // CLAUDE CODE — bug fix: this route used to unconditionally INSERT a new
+    // dated workout every time it was called. There was no UI button wired
+    // up to call it at all (the frontend only had the CSS for one — see
+    // WorkoutList.jsx), so once that button got added, clicking it more than
+    // once for the same template on the same day would silently create a
+    // second, disconnected dated workout — the calendar can only link to one
+    // workout per day, so the extra session would become unreachable, which
+    // is exactly what Nigel described as workouts "resetting/disappearing".
+    // Guard against that: if today's dated instance of this template already
+    // exists, hand that back instead of cloning a duplicate.
+    const existingTodayResult = await pool.query(`
+      SELECT * FROM workouts
+      WHERE user_id = $1
+        AND is_template = false
+        AND name = $2
+        AND DATE(date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')
+    `, [req.userId, template.name])
+
+    if (existingTodayResult.rows[0]) {
+      return res.status(200).json(existingTodayResult.rows[0])
+    }
+
     // today's dated workout — same name as the template it came from
     const newWorkoutResult = await pool.query(
       'INSERT INTO workouts (user_id, name, date, is_template) VALUES ($1, $2, NOW(), false) RETURNING *',
@@ -169,8 +168,23 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
 router.get('/muscle-volume', requireAuth, async (req, res) => {
   // frontend sends ?range=today|week|month|all (default, and fallback for
   // anything unrecognized, is 'today' — never silently falls through to all-time)
+  const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'today'
-  const dateClause = getRangeClause(range)
+
+  // w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
+  // wall-clock (the session timezone at insert time, UTC on Neon). A single
+  // AT TIME ZONE would misinterpret that naive UTC value as if it were already
+  // APP_TIMEZONE-local — the double conversion below is required: first
+  // reinterpret as UTC (naive -> timestamptz), then convert that instant into
+  // APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
+  // NOW() is already timestamptz, so it only needs the single conversion.
+  const RANGE_CLAUSES = {
+    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
+    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
+    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
+    all: '',
+  }
+  const dateClause = RANGE_CLAUSES[range]
 
   const result = await pool.query(`
     SELECT
@@ -185,20 +199,31 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
       ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
-
+  
   // muscle-split.js, transform raw rows into per muscle group tonnage
   const volume = computeMuscleVolume(result.rows)
   res.json(volume)
 })
 
 // GET /api/workouts/muscle-sets
-// total SETS per muscle group — feeds the Dashboard's Muscle
-// Balance boxes now that they track "sets/week toward a 10-20 target"
+// CLAUDE CODE — bug fix: Dashboard.jsx's Muscle Balance boxes need SETS per
+// muscle group per week (the "Target: 10-20 sets/week" hint), not tonnage —
+// but the client function calling this exact path (getMuscleSets) didn't
+// exist in src/api/workouts.js, and this route didn't exist either. Same
+// shape/registration pattern as /muscle-volume just above (registered
+// BEFORE /:id for the same single-segment-path reason), swapping SUM(weight
+// * reps) for COUNT(sets) via computeMuscleSets.
 router.get('/muscle-sets', requireAuth, async (req, res) => {
-  // defaults to 'week' (not 'today') since "sets/week" is the whole point —
-  // a single day's sets against a weekly target would read as almost empty
+  const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'week'
-  const dateClause = getRangeClause(range)
+
+  const RANGE_CLAUSES = {
+    today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
+    week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
+    month: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '30 days'`,
+    all: '',
+  }
+  const dateClause = RANGE_CLAUSES[range]
 
   const result = await pool.query(`
     SELECT
@@ -214,73 +239,8 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
 
-  const setsByGroup = computeMuscleSets(result.rows)
-  res.json(setsByGroup)
-})
-
-// GET /api/workouts/history?weekOffset=0
-// Phase 3 Part 3 — one row per day of a Monday-Sunday week, ALWAYS 7 rows
-// even for days with zero workouts (generate_series builds the 7 dates
-// first, then LEFT JOINs real data onto them — a plain GROUP BY on the
-// workouts table alone would silently drop empty days instead of showing
-// them as "0 sets"). weekOffset shifts which week: 0 = this week, -1 =
-// last week, 1 = next week. registered BEFORE /:id — same reasoning as
-// /muscle-volume and /muscle-sets above.
-router.get('/history', requireAuth, async (req, res) => {
-  // parseInt + `|| 0` — anything missing or non-numeric in the query
-  // string (e.g. ?weekOffset=banana) safely falls back to "this week"
-  // instead of reaching the database as a bad value
-  const weekOffset = parseInt(req.query.weekOffset, 10) || 0
-
-  try {
-    const result = await pool.query(`
-      WITH week_start AS (
-        -- date_trunc('week', ...) rounds down to that week's Monday.
-        -- $1 is the number of whole weeks to shift by — Postgres lets you
-        -- multiply an INTERVAL by a number, so -1 * INTERVAL '1 week'
-        -- becomes "minus 1 week" and 1 becomes "plus 1 week"
-        SELECT date_trunc('week', NOW() AT TIME ZONE '${APP_TIMEZONE}')::date
-               + ($1 * INTERVAL '1 week') AS start
-      ),
-      days AS (
-        -- generate_series(start, start+6 days, 1 day) = exactly 7 rows,
-        -- Monday through Sunday — this is what guarantees every day
-        -- appears below even if the user logged nothing that day
-        SELECT generate_series(start, start + INTERVAL '6 days', INTERVAL '1 day')::date AS day
-        FROM week_start
-      )
-      SELECT
-        days.day,
-        COUNT(DISTINCT e.id) AS exercise_count,
-        COUNT(s.id) AS set_count
-      FROM days
-      -- LEFT JOIN (not JOIN) — keeps every day from the 'days' CTE even
-      -- when no workout matches it, same double AT TIME ZONE conversion
-      -- as getRangeClause() above (naive UTC timestamp -> APP_TIMEZONE date)
-      LEFT JOIN workouts w
-        ON DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = days.day
-        AND w.user_id = $2
-        AND w.is_template = false
-      LEFT JOIN exercises e ON e.workout_id = w.id
-      LEFT JOIN sets s ON s.exercise_id = e.id
-      GROUP BY days.day
-      ORDER BY days.day
-    `, [weekOffset, req.userId])
-
-    // COUNT() comes back from pg as a string (bigint) — Number(...) here
-    // instead of in the frontend keeps every route's JSON output actual
-    // numbers, same pattern as computeMuscleVolume/computeMuscleSets
-    const days = result.rows.map((row) => ({
-      day: row.day,
-      exercise_count: Number(row.exercise_count),
-      set_count: Number(row.set_count),
-    }))
-
-    res.json(days)
-  } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Failed to fetch workout history' })
-  }
+  const sets = computeMuscleSets(result.rows)
+  res.json(sets)
 })
 
 // GET /api/workouts/pr-summary
@@ -342,6 +302,69 @@ router.get('/pr-summary', requireAuth, async (req, res) => {
     res.status(500).json({error: 'Failed to fetch PR summary'})
   }
 
+})
+
+// GET /api/workouts/history?weekOffset=N
+// CLAUDE CODE — bug fix: HistoryCalendar.jsx (Dashboard's weekly calendar)
+// has been calling a `getWorkoutHistory()` client function that called this
+// exact path — but the route never existed on the server, and the client
+// function itself didn't even exist in src/api/workouts.js. Every call threw,
+// the calendar's catch block swallowed it silently, and the week just
+// rendered as 7 empty boxes. This is the endpoint that was missing: one row
+// per day (Monday-Sunday) for the requested week, with exercise/set counts
+// and — new — a `workout_id` so the frontend can link a day straight to that
+// day's dated workout (see WorkoutList.jsx's new "Set as Workout for Today"
+// button, and HistoryCalendar.jsx below).
+// registered BEFORE /:id — same single-segment-path hazard as /muscle-volume
+// and /pr-summary above
+router.get('/history', requireAuth, async (req, res) => {
+  // weekOffset: 0 = this week, -1 = last week, etc. — matches
+  // HistoryCalendar.jsx's weekOffset state exactly. Guard against garbage
+  // input (NaN, decimals, an absurd range) rather than trusting the query
+  // string — this value gets interpolated into an INTERVAL multiplication.
+  const rawOffset = Number(req.query.weekOffset)
+  const weekOffset =
+    Number.isInteger(rawOffset) && rawOffset <= 0 && rawOffset >= -520
+      ? rawOffset
+      : 0
+
+  try {
+    const result = await pool.query(`
+      WITH week_start AS (
+        -- DATE_TRUNC('week', ...) starts on Monday in Postgres by default,
+        -- matching HistoryCalendar's Mon-Sun boxes
+        SELECT (
+          DATE_TRUNC('week', (NOW() AT TIME ZONE '${APP_TIMEZONE}'))::date
+          + ($2 * INTERVAL '7 days')
+        )::date AS start_date
+      ),
+      day_series AS (
+        SELECT (week_start.start_date + offset_day * INTERVAL '1 day')::date AS day
+        FROM week_start, generate_series(0, 6) AS offset_day
+      )
+      SELECT
+        day_series.day,
+        COUNT(DISTINCT e.id) AS exercise_count,
+        COUNT(s.id) AS set_count,
+        -- one dated workout per day is the expected case (see the log-today
+        -- dedup fix above) — MIN() just picks a stable one if that's ever violated
+        MIN(w.id) AS workout_id
+      FROM day_series
+      LEFT JOIN workouts w
+        ON w.user_id = $1
+        AND w.is_template = false
+        AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = day_series.day
+      LEFT JOIN exercises e ON e.workout_id = w.id
+      LEFT JOIN sets s ON s.exercise_id = e.id
+      GROUP BY day_series.day
+      ORDER BY day_series.day
+    `, [req.userId, weekOffset])
+
+    res.json(result.rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to fetch workout history' })
+  }
 })
 
 // GET/:id - one workout with all its exercises and sets

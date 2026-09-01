@@ -65,6 +65,20 @@ export async function logWorkoutToday(token, templateId) {
   return handleResponse(response, 'Failed to log workout for today')
 }
 
+// GET /api/workouts/history?weekOffset=N — CLAUDE CODE BUG FIX: this function
+// didn't exist at all even though HistoryCalendar.jsx was already importing
+// and calling it — every call threw "not a function", silently caught, so
+// the Dashboard's weekly calendar always rendered empty. weekOffset: 0 =
+// this week, -1 = last week, etc. Each returned day now also carries
+// workout_id (null if nothing was logged that day) so a day box can link
+// straight to that day's dated workout.
+export async function getWorkoutHistory(token, weekOffset = 0) {
+  const response = await fetch(`${BASE_URL}/workouts/history?weekOffset=${weekOffset}`, {
+    headers: authHeaders(token)
+  })
+  return handleResponse(response, 'Failed to fetch workout history')
+}
+
 // GET /api/workouts/:id — fetch one workout with exercises and sets
 export async function getWorkout(token, id) {
   const response = await fetch(`${BASE_URL}/workouts/${id}`, {
@@ -144,27 +158,17 @@ export async function getMuscleVolume(token, range = "today") {
 }
 
 // GET /api/workouts/muscle-sets?range=today|week|month|all
-// total SETS (not tonnage) per muscle group — feeds the Dashboard's Muscle
-// Balance boxes (Phase 3 Part 2). Separate from getMuscleVolume above,
-// which the anatomy chart still uses.
+// CLAUDE CODE BUG FIX: Dashboard.jsx already imported and called this
+// function — it just never existed, which crashed the whole Dashboard
+// module at load time ("doesn't provide an export named: 'getMuscleSets'").
+// Sets per muscle group (not tonnage) — feeds the Muscle Balance boxes'
+// "10-20 sets/week" target.
 export async function getMuscleSets(token, range = "week") {
   const response = await fetch(
     `${BASE_URL}/workouts/muscle-sets?range=${encodeURIComponent(range)}`,
     { headers: authHeaders(token) }
   )
   return handleResponse(response, 'Failed to fetch muscle sets')
-}
-
-// GET /api/workouts/history?weekOffset=0
-// Phase 3 Part 3 — always 7 days (Monday-Sunday), even ones with zero
-// workouts logged — feeds the Dashboard's History calendar. weekOffset:
-// 0 = this week, -1 = last week, 1 = next week, etc.
-export async function getWorkoutHistory(token, weekOffset = 0) {
-  const response = await fetch(
-    `${BASE_URL}/workouts/history?weekOffset=${encodeURIComponent(weekOffset)}`,
-    { headers: authHeaders(token) }
-  )
-  return handleResponse(response, 'Failed to fetch workout history')
 }
 
 // GET /api/analytics/volume?range=week|month|all
