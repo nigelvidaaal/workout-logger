@@ -42,6 +42,40 @@ body {
     var(--bg-primary);
 }
 
+/* CLAUDE CODE — bug fix: "typing reps/weight/sets or naming a workout
+   zooms the whole page in, and that's what reveals the horizontal scroll."
+   This is iOS Safari's built-in behavior, not a layout bug per se: it
+   auto-zooms the page on focusing any text input whose computed font-size
+   is under 16px, to make sure you can read what you're typing — and every
+   form input in this app (WorkoutDetail's Reps/Weight/Set# inputs,
+   WorkoutList's workout-name input, ExerciseSearch, the AI chat box, the
+   body-weight log input, Login/Register) sets its own font-size somewhere
+   between 0.9rem and 0.95rem (14.4-15.2px), all under that threshold.
+   Overriding to 16px on every input/select/textarea at the same 640px
+   mobile breakpoint used everywhere else in the app removes the zoom
+   trigger entirely — desktop's tighter sizing is untouched.
+   !important is deliberate here: every affected class (.input, .logInput,
+   etc., one per CSS module) sets its own font-size with equal-or-higher
+   specificity than a bare element selector, so without it this would lose
+   to every one of them. Centralizing the override here means every current
+   AND future input in the app is covered from one place, instead of
+   patching font-size individually across 7+ separate .module.css files. */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* CLAUDE CODE — bug fix: belt-and-suspenders alongside the fix above.
+   Nothing in this app is SUPPOSED to be wider than the viewport, but
+   should anything ever push past it again (this exact zoom-triggered case,
+   or a future layout regression), this stops it from being scrollable
+   sideways rather than silently allowing it — matches "don't make it zoom
+   and fix [the scroll]" as two separate, both-required asks. */
+html, body {
+  overflow-x: hidden;
+}
+
 h1, h2, h3 {
   font-weight: 600;
 }
