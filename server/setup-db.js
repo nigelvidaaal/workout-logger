@@ -94,6 +94,20 @@ async function setup() {
       date DATE NOT NULL,
       UNIQUE (user_id, date)
     );
+
+    -- CLAUDE CODE — favorites (60/40 split, my 40%: "a favorite icon when
+    -- searching up a muscle group"). One row per user+catalog exercise;
+    -- UNIQUE stops the star from creating duplicates on a double-click/
+    -- retried request. Scoped to catalog exercises for now (not custom
+    -- ones) since that's what the search dropdown this feeds actually
+    -- lists matches from.
+    CREATE TABLE IF NOT EXISTS favorites (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      catalog_id TEXT NOT NULL REFERENCES exercise_catalog(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE (user_id, catalog_id)
+    );
   `)
 
   console.log(' Tables created succesfully')

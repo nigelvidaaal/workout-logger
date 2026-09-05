@@ -68,4 +68,26 @@ function computeMuscleSets(rows) {
   return sets;
 }
 
-module.exports = { computeMuscleVolume, computeMuscleSets };
+// CLAUDE CODE — piece 4 (muscle-group-picker feature): merges a second
+// result set — custom exercises, already keyed by their FINAL chart-group
+// name (e.g. "back", "triceps") — into the same { chartGroup: amount } shape
+// computeMuscleVolume/computeMuscleSets produce for catalog exercises.
+//
+// Deliberately NOT routed through MUSCLE_MAP the way catalog muscles are:
+// MUSCLE_MAP's keys are raw catalog dataset names (e.g. "lats", "middle
+// back", "traps") that each fold DOWN into one of the 10 final groups — it
+// has no entries for the final group names themselves (there's no
+// "back": "back" in there). A custom exercise's muscle_group is already one
+// of those final 10 values (see exercises.js's ALLOWED_MUSCLE_GROUPS and
+// WorkoutDetail.jsx's picker), so passing it through MUSCLE_MAP would just
+// look up a key that isn't there, get back undefined, and silently vanish —
+// this does a direct sum instead, no lookup needed.
+function mergeGroupAmounts(base, rows, amountKey) {
+  for (const row of rows) {
+    if (!row.muscle_group) continue; // shouldn't happen (query filters this), belt-and-suspenders
+    base[row.muscle_group] = (base[row.muscle_group] || 0) + Number(row[amountKey]);
+  }
+  return base;
+}
+
+module.exports = { computeMuscleVolume, computeMuscleSets, mergeGroupAmounts };

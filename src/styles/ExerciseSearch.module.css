@@ -35,8 +35,9 @@
 
 .option {
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   padding: 0.5rem 0.9rem;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
@@ -44,6 +45,16 @@
 
 .option:hover {
   background: var(--bg-secondary);
+}
+
+.optionMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* same min-width: 0 reasoning used throughout this app — .optionMain is a
+     flex item next to the star button, and a long exercise name shouldn't
+     be able to push the star out past the dropdown's edge */
+  min-width: 0;
 }
 
 .optionName {
@@ -56,6 +67,26 @@
   font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: capitalize;
+}
+ 
+.favoriteBtn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.15rem;
+  line-height: 1;
+  padding: 0.25rem;
+  transition: color 0.15s, transform 0.1s;
+}
+
+.favoriteBtn:hover {
+  color: var(--accent);
+  transform: scale(1.15);
+}
+
+.favoriteBtnActive {
+  color: var(--accent);
 }
 
 .noResults {

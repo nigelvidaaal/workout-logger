@@ -14,6 +14,7 @@ import { useAuth } from "../context/AuthContext";
 import styles from "../styles/WorkoutDetail.module.css";
 import confetti from "canvas-confetti";
 import { ExerciseSearch } from "../components/ExerciseSearch";
+import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 
 export function WorkoutDetail() {
   // workout — single object containing { id, name, date, exercises: [] }
@@ -27,6 +28,11 @@ export function WorkoutDetail() {
   // catalogId — set when exerciseName came from picking a real catalog match;
   // null means a fully custom name, either typed or explicitly confirmed as custom
   const [catalogId, setCatalogId] = useState(null);
+  // for custom exercises made by user
+  const [muscleGroup, setMuscleGroup] = useState("");
+
+  // links to catalogIg and verifies that there should be an input
+  const isCustomExercise = catalogId === null && exerciseName.trim() !== "";
 
   // isEditing — toggles the workout name between display (<h1>) and edit (input) mode
   const [isEditing, setIsEditing] = useState(false);
@@ -108,12 +114,19 @@ export function WorkoutDetail() {
     e.preventDefault();
     try {
       // create the exercise — workout.id tells the server which workout it belongs to
-      await createExercise(token, id, exerciseName, catalogId);
+      await createExercise(
+        token,
+        id,
+        exerciseName,
+        catalogId,
+        isCustomExercise ? muscleGroup : null,
+      );
       // refetch so the new exercise appears immediately
       await fetchWorkout();
       // clear the inputs
       setExerciseName("");
       setCatalogId(null);
+      setMuscleGroup("");
     } catch (err) {
       setError(err.message);
     }
@@ -287,17 +300,37 @@ export function WorkoutDetail() {
             if (item) {
               setExerciseName(item.name);
               setCatalogId(item.id);
+              setMuscleGroup("");
             } else {
               // "add as custom" — keep the typed name, explicitly confirm no catalog link
               setCatalogId(null);
             }
           }}
         />
-        {/* disabled until a name is entered */}
+        {isCustomExercise && (
+          <select
+            className={styles.muscleGroupSelect}
+            value={muscleGroup}
+            onChange={(e) => setMuscleGroup(e.target.value)}
+            required
+            aria-label="Muscle group"
+          >
+            <option value="" disabled>
+              Muscle group…
+            </option>
+            {MUSCLE_GROUPS.map((group) => (
+              <option key={group.value} value={group.value}>
+                {group.label}
+              </option>
+            ))}
+          </select>
+        )}
+        {/* disabled until a name is entered, and — for a custom exercise —
+            until a muscle group is picked too */}
         <button
           type="submit"
           className={styles.addBtn}
-          disabled={!exerciseName}
+          disabled={!exerciseName || (isCustomExercise && !muscleGroup)}
         >
           Add Exercise
         </button>

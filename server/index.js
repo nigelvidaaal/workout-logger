@@ -12,6 +12,7 @@ const achievementsRouter = require('./routes/r-achievements')
 const catalogRouter = require('./routes/catalog')
 const analyticsRouter = require('./routes/analytics')
 const aiRouter = require('./routes/ai')
+const favoritesRouter = require('./routes/favorites') // NEW — CLAUDE CODE, favorite-a-catalog-exercise
 
 const app = express()
 
@@ -33,6 +34,7 @@ app.use('/api/prs', prRouter)
 app.use('/api/achievements', achievementsRouter)
 app.use('/api/catalog', catalogRouter)
 app.use('/api/analytics', analyticsRouter)
+app.use('/api/favorites', favoritesRouter) // NEW — CLAUDE CODE
 
 // ai chat helper
 app.use('/api/ai', aiRouter)

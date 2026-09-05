@@ -3,6 +3,11 @@ const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 
+const ALLOWED_MUSCLE_GROUPS = [
+  'chest', 'back', 'shoulders', 'biceps', 'triceps',
+  'abs', 'quads', 'hamstrings', 'glutes', 'calves',
+]
+
 // POST /api/workouts/:workoutId/exercises
 // adds a new exercise to a specific workout
 // notice the route is just '/:workoutId/exercises' here because in index.js
@@ -11,11 +16,17 @@ router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
 
   // workoutId - workout added to, name - exercise name,
   // catalogId - optional link back to exercise_catalog when the name came from a search result.
-  // muscle data now comes exclusively from the catalog (via catalogId) — no manual muscle_group tagging
+
   const { workoutId } = req.params
   const { name } = req.body
   // explicit default — don't depend on how pg handles a bare `undefined` bind param
   const catalogId = req.body.catalogId ?? null
+  // force null whenever catalogId is set (muscle data already comes from the
+  // catalog then) and fall back to null for anything not in the allow-list —
+  // an invalid/missing value is just "no muscle group", not a rejected request
+  const muscleGroup = (!catalogId && ALLOWED_MUSCLE_GROUPS.includes(req.body.muscleGroup))
+    ? req.body.muscleGroup
+    : null
 
   if (!name) return res.status(400).json({ error: 'All fields required' })
 
@@ -31,8 +42,8 @@ router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
     // insert the exercise
     // foreign key in action: exercises.workout_id = workouts.id
     const result = await pool.query(
-      'INSERT INTO exercises (workout_id, name, catalog_id) VALUES ($1, $2, $3) RETURNING id, name, catalog_id',
-      [workoutId, name, catalogId]
+      'INSERT INTO exercises (workout_id, name, catalog_id, muscle_group) VALUES ($1, $2, $3, $4) RETURNING id, name, catalog_id, muscle_group',
+      [workoutId, name, catalogId, muscleGroup]
     )
 
     // fetch and return the newly created exercise

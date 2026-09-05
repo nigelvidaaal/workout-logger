@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { searchCatalog } from "../api/workouts";
+import { searchCatalog, addFavorite, removeFavorite } from "../api/workouts"; // NEW — CLAUDE CODE, favorites
 import styles from "../styles/ExerciseSearch.module.css";
 
 // controlled combobox: parent owns the text value, this owns the search/dropdown state.
@@ -58,6 +58,32 @@ export function ExerciseSearch({ value, onChange, onSelectCatalogItem }) {
     onSelectCatalogItem(null);
   }
 
+  // toggles a catalog exercise's favorited
+  async function handleToggleFavorite(item, e) {
+    // this button lives inside a row whose own onMouseDown selects the
+    // match — stop that from firing too
+    e.preventDefault();
+    e.stopPropagation();
+
+    const next = !item.is_favorited;
+    setResults((prev) =>
+      prev.map((r) => (r.id === item.id ? { ...r, is_favorited: next } : r)),
+    );
+
+    try {
+      if (next) {
+        await addFavorite(token, item.id);
+      } else {
+        await removeFavorite(token, item.id);
+      }
+    } catch {
+      // request failed — put the star back the way it was
+      setResults((prev) =>
+        prev.map((r) => (r.id === item.id ? { ...r, is_favorited: !next } : r)),
+      );
+    }
+  }
+
   return (
     <div className={styles.wrapper}>
       <input
@@ -83,12 +109,26 @@ export function ExerciseSearch({ value, onChange, onSelectCatalogItem }) {
                 handleSelectMatch(item);
               }}
             >
-              <span className={styles.optionName}>{item.name}</span>
-              {item.primary_muscles?.length > 0 && (
-                <span className={styles.optionMuscles}>
-                  {item.primary_muscles.join(", ")}
-                </span>
-              )}
+              <div className={styles.optionMain}>
+                <span className={styles.optionName}>{item.name}</span>
+                {item.primary_muscles?.length > 0 && (
+                  <span className={styles.optionMuscles}>
+                    {item.primary_muscles.join(", ")}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className={`${styles.favoriteBtn} ${item.is_favorited ? styles.favoriteBtnActive : ""}`}
+                onMouseDown={(e) => handleToggleFavorite(item, e)}
+                aria-label={
+                  item.is_favorited
+                    ? `Remove ${item.name} from favorites`
+                    : `Favorite ${item.name}`
+                }
+              >
+                {item.is_favorited ? "★" : "☆"}
+              </button>
             </div>
           ))}
 

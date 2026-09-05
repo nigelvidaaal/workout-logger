@@ -97,12 +97,12 @@ export async function deleteWorkout(token, id) {
 }
 
 // POST /api/workouts/:workoutId/exercises — add exercise to a workout
-// muscle data comes exclusively from the catalog (via catalogId) — no manual muscle_group tagging
-export async function createExercise(token, workoutId, name, catalogId) {
+// catalogId links to a real catalog entry 
+export async function createExercise(token, workoutId, name, catalogId, muscleGroup = null) {
   const response = await fetch(`${BASE_URL}/workouts/${workoutId}/exercises`, {
     method: 'POST',
     headers: authHeaders(token),
-    body: JSON.stringify({ name, catalogId })
+    body: JSON.stringify({ name, catalogId, muscleGroup })
   })
   return handleResponse(response, 'Failed to create exercise')
 }
@@ -221,6 +221,24 @@ export async function searchCatalog(token, query) {
     { headers: authHeaders(token) }
   )
   return handleResponse(response, 'Failed to search catalog')
+}
+
+// POST /api/favorites/:catalogId - star a catalog exercise
+export async function addFavorite(token, catalogId) {
+  const response = await fetch(
+    `${BASE_URL}/favorites/${encodeURIComponent(catalogId)}`,
+    { method: 'POST', headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to favorite exercise')
+}
+
+// DELETE /api/favorites/:catalogId
+export async function removeFavorite(token, catalogId) {
+  const response = await fetch(
+    `${BASE_URL}/favorites/${encodeURIComponent(catalogId)}`,
+    { method: 'DELETE', headers: authHeaders(token) }
+  )
+  return handleResponse(response, 'Failed to unfavorite exercise')
 }
 
 // GET /api/achievements — fetch all unlocked achievements

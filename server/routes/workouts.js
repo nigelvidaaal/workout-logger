@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
-const { computeMuscleVolume, computeMuscleSets } = require('../muscle_split')  // adjust path
+const { computeMuscleVolume, computeMuscleSets, mergeGroupAmounts } = require('../muscle_split')  // adjust path
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
 
@@ -41,10 +41,7 @@ function groupExercisesWithSets(rows) {
   return Object.values(map)
 }
 
-// GET all SAVED WORKOUTS (templates) for the logged-in user — "My Workouts" is
-// now a template library, not a dated history, so this only returns
-// is_template rows. ORDER BY date DESC doesn't mean anything here (templates
-// have no date), so newest-created-first (id DESC) instead.
+// GET all SAVED WORKOUTS (templates) for the logged-in user 
 router.get('/', requireAuth, async (req, res) => {
   const result = await pool.query(
     'SELECT * FROM workouts WHERE user_id = $1 AND is_template = true ORDER BY id DESC',
@@ -89,10 +86,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
 })
 
-// POST /:id/log-today — clones a saved workout's exercise list into a brand
-// new DATED workout for today, so repeating a workout doesn't mean retyping
-// every exercise. Templates never carry sets (only exercises), so there's
-// nothing to clone besides the exercise rows themselves.
+// POST /:id/log-today — clones a saved workout's exercise list into a brand new
 router.post('/:id/log-today', requireAuth, async (req, res) => {
   const { id } = req.params
 
@@ -114,16 +108,7 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
       [id]
     )
 
-    // CLAUDE CODE — bug fix: this route used to unconditionally INSERT a new
-    // dated workout every time it was called. There was no UI button wired
-    // up to call it at all (the frontend only had the CSS for one — see
-    // WorkoutList.jsx), so once that button got added, clicking it more than
-    // once for the same template on the same day would silently create a
-    // second, disconnected dated workout — the calendar can only link to one
-    // workout per day, so the extra session would become unreachable, which
-    // is exactly what Nigel described as workouts "resetting/disappearing".
-    // Guard against that: if today's dated instance of this template already
-    // exists, hand that back instead of cloning a duplicate.
+    // this route used to unconditionally INSERT a new dated workout everytime
     const existingTodayResult = await pool.query(`
       SELECT * FROM workouts
       WHERE user_id = $1
@@ -144,9 +129,7 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
     const newWorkout = newWorkoutResult.rows[0]
 
     // clone each exercise onto the new workout, one INSERT at a time (not
-    // Promise.all) — if one fails partway through, the new workout ends up
-    // with a partial-but-consistent exercise list instead of rows landing in
-    // an unpredictable order
+    // Promise.all)
     for (const ex of exercisesResult.rows) {
       await pool.query(
         'INSERT INTO exercises (workout_id, name, muscle_group, catalog_id) VALUES ($1, $2, $3, $4)',
@@ -171,13 +154,6 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
   const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'today'
 
-  // w.date is a naive TIMESTAMP written via NOW(), which Postgres stores as UTC
-  // wall-clock (the session timezone at insert time, UTC on Neon). A single
-  // AT TIME ZONE would misinterpret that naive UTC value as if it were already
-  // APP_TIMEZONE-local — the double conversion below is required: first
-  // reinterpret as UTC (naive -> timestamptz), then convert that instant into
-  // APP_TIMEZONE local wall-clock (timestamptz -> naive) before DATE()/comparison.
-  // NOW() is already timestamptz, so it only needs the single conversion.
   const RANGE_CLAUSES = {
     today: `AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = DATE(NOW() AT TIME ZONE '${APP_TIMEZONE}')`,
     week: `AND w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}' >= (NOW() AT TIME ZONE '${APP_TIMEZONE}') - INTERVAL '7 days'`,
@@ -199,9 +175,26 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
       ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
-  
+
+  // user's inputted exercise 
+  const customResult = await pool.query(`
+    SELECT
+      e.muscle_group,
+      SUM(s.weight * s.reps) AS tonnage
+    FROM sets s
+    JOIN exercises e ON s.exercise_id = e.id
+    JOIN workouts w ON e.workout_id = w.id
+    WHERE w.user_id = $1
+      AND e.catalog_id IS NULL
+      AND e.muscle_group IS NOT NULL
+      ${dateClause}
+    GROUP BY e.muscle_group
+  `, [req.userId])
+
   // muscle-split.js, transform raw rows into per muscle group tonnage
   const volume = computeMuscleVolume(result.rows)
+  // merging all together
+  mergeGroupAmounts(volume, customResult.rows, 'tonnage')
   res.json(volume)
 })
 
@@ -239,7 +232,24 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
 
+  // same custom-exercise gap/fix as /muscle-volume
+  // above, just counting sets instead of tonnage.
+  const customResult = await pool.query(`
+    SELECT
+      e.muscle_group,
+      COUNT(s.id) AS set_countz
+    FROM sets s
+    JOIN exercises e ON s.exercise_id = e.id
+    JOIN workouts w ON e.workout_id = w.id
+    WHERE w.user_id = $1
+      AND e.catalog_id IS NULL
+      AND e.muscle_group IS NOT NULL
+      ${dateClause}
+    GROUP BY e.muscle_group
+  `, [req.userId])
+
   const sets = computeMuscleSets(result.rows)
+  mergeGroupAmounts(sets, customResult.rows, 'set_count')
   res.json(sets)
 })
 
@@ -305,17 +315,6 @@ router.get('/pr-summary', requireAuth, async (req, res) => {
 })
 
 // GET /api/workouts/history?weekOffset=N
-// CLAUDE CODE — bug fix: HistoryCalendar.jsx (Dashboard's weekly calendar)
-// has been calling a `getWorkoutHistory()` client function that called this
-// exact path — but the route never existed on the server, and the client
-// function itself didn't even exist in src/api/workouts.js. Every call threw,
-// the calendar's catch block swallowed it silently, and the week just
-// rendered as 7 empty boxes. This is the endpoint that was missing: one row
-// per day (Monday-Sunday) for the requested week, with exercise/set counts
-// and — new — a `workout_id` so the frontend can link a day straight to that
-// day's dated workout (see WorkoutList.jsx's new "Set as Workout for Today"
-// button, and HistoryCalendar.jsx below).
-// registered BEFORE /:id — same single-segment-path hazard as /muscle-volume
 // and /pr-summary above
 router.get('/history', requireAuth, async (req, res) => {
   // weekOffset: 0 = this week, -1 = last week, etc. — matches

@@ -198,6 +198,23 @@
   border-color: var(--accent);
 }
 
+.muscleGroupSelect {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  color: var(--text-primary);
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.muscleGroupSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .addBtn {
   background: var(--accent);
   color: var(--text-primary);
