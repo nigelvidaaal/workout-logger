@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { ConfirmModal } from "./ConfirmModal";
 import styles from "../styles/Navbar.module.css";
 
 // aiOpen/onToggleAI come from App.jsx — this button and AIHelper's panel
@@ -12,6 +14,12 @@ export function Navbar({ aiOpen, onToggleAI }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  // CLAUDE CODE — punch list: "are you sure you want to log out?" The
+  // LogOut icon button no longer calls handleLogout directly — it just
+  // opens this confirmation, and the actual logout only happens if the
+  // user confirms in the modal below.
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+
   function handleLogout() {
     logout();
     // send user to login page — they're no longer authenticated
@@ -19,6 +27,7 @@ export function Navbar({ aiOpen, onToggleAI }) {
   }
 
   return (
+    <>
     <nav className={styles.navbar}>
       <Link to="/" className={styles.brand}>
         <div>
@@ -52,7 +61,7 @@ export function Navbar({ aiOpen, onToggleAI }) {
           <button
             type="button"
             className={styles.iconBtn}
-            onClick={handleLogout}
+            onClick={() => setConfirmingLogout(true)}
             aria-label="Log out"
           >
             <LogOut size={20} strokeWidth={2} />
@@ -79,5 +88,17 @@ export function Navbar({ aiOpen, onToggleAI }) {
         </div>
       )}
     </nav>
+
+    {confirmingLogout && (
+      <ConfirmModal
+        title="Log out?"
+        message="You'll need to log back in to see your workouts again."
+        confirmLabel="Log out"
+        cancelLabel="Cancel"
+        onConfirm={handleLogout}
+        onCancel={() => setConfirmingLogout(false)}
+      />
+    )}
+    </>
   );
 }

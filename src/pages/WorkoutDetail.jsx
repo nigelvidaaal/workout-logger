@@ -192,6 +192,26 @@ export function WorkoutDetail() {
     }
   }
 
+  // CLAUDE CODE — "repeating sets" (punch list): opens the add-set form for
+  // an exercise pre-filled from that exercise's own last set, instead of
+  // always starting blank. Most sets on the same exercise use the same
+  // reps/weight as the one before it (3 sets of the same bench press weight,
+  // for example) — this means tapping Save is usually enough, no retyping.
+  // exercise.sets is already ordered by set_number ASC (see the server's
+  // /:id query), so the last element is the most recently added set.
+  // set_number auto-increments too — you're always adding the NEXT set.
+  // A brand-new exercise with no sets yet still opens fully blank, same as
+  // before, since there's nothing to repeat from.
+  function handleOpenAddSet(exercise) {
+    const lastSet = exercise.sets[exercise.sets.length - 1];
+    setNewSet({
+      exerciseId: exercise.id,
+      reps: lastSet ? String(lastSet.reps) : "",
+      weight: lastSet ? String(lastSet.weight) : "",
+      set_number: lastSet ? String(lastSet.set_number + 1) : "1",
+    });
+  }
+
   // early returns — same pattern as every other page
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
@@ -432,7 +452,7 @@ export function WorkoutDetail() {
           ) : (
             <button
               className={styles.addSetBtn}
-              onClick={() => setNewSet({ ...newSet, exerciseId: exercise.id })}
+              onClick={() => handleOpenAddSet(exercise)}
             >
               + Add Set
             </button>
