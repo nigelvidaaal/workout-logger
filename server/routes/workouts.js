@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
+
 const { computeMuscleVolume, computeMuscleSets, mergeGroupAmounts } = require('../muscle_split')  // adjust path
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
@@ -41,7 +42,7 @@ function groupExercisesWithSets(rows) {
   return Object.values(map)
 }
 
-// GET all SAVED WORKOUTS (templates) for the logged-in user 
+// GET all SAVED WORKOUTS for the logged-in user 
 router.get('/', requireAuth, async (req, res) => {
   const result = await pool.query(
     'SELECT * FROM workouts WHERE user_id = $1 AND is_template = true ORDER BY id DESC',
@@ -53,8 +54,6 @@ router.get('/', requireAuth, async (req, res) => {
 
 
 // POST / — creates a new SAVED WORKOUT (template): no date, is_template = true.
-// Dated sessions only ever get created via POST /:id/log-today below, by
-// cloning a template — never directly here anymore.
 router.post('/', requireAuth, async (req, res) => {
   // destructure name from req.body
   const { name } = req.body;
@@ -64,17 +63,14 @@ router.post('/', requireAuth, async (req, res) => {
     return res.status(401).json({ error: 'Name not found!' });
   }
 
-  // insert the workout — user_id comes from req.userId set by requireAuth
-  // this is how every workout gets tied to its owner
-  // date is explicitly NULL (overrides the column's DEFAULT NOW(), which only
-  // applies when a column is left out of the INSERT entirely, not set to NULL)
+  // inserting the new workout 
   try {
     const result = await pool.query(
       'INSERT INTO workouts (user_id, name, date, is_template) VALUES ($1, $2, NULL, true) RETURNING *',
       [req.userId, name]
     )// ↑ user   ↑ workout name
 
-    // after inserting, fetch the new workout and return it (postgres format)
+    // after inserting, fetch the new workout and return it 
     const newWorkout = result.rows[0]
 
     // return, 201 = Created
@@ -145,9 +141,6 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
 })
 
 // GET /api/workouts/muscle-volume
-// total tonnage (reps x weight) per muscle group, across ALL of the user's workouts.
-// registered BEFORE /:id — a single-segment path here would otherwise be
-// swallowed by the /:id route above and treated as an (invalid) workout id
 router.get('/muscle-volume', requireAuth, async (req, res) => {
   // frontend sends ?range=today|week|month|all (default, and fallback for
   // anything unrecognized, is 'today' — never silently falls through to all-time)
@@ -199,13 +192,6 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
 })
 
 // GET /api/workouts/muscle-sets
-// CLAUDE CODE — bug fix: Dashboard.jsx's Muscle Balance boxes need SETS per
-// muscle group per week (the "Target: 10-20 sets/week" hint), not tonnage —
-// but the client function calling this exact path (getMuscleSets) didn't
-// exist in src/api/workouts.js, and this route didn't exist either. Same
-// shape/registration pattern as /muscle-volume just above (registered
-// BEFORE /:id for the same single-segment-path reason), swapping SUM(weight
-// * reps) for COUNT(sets) via computeMuscleSets.
 router.get('/muscle-sets', requireAuth, async (req, res) => {
   const ALLOWED_RANGES = ['today', 'week', 'month', 'all']
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'week'
@@ -317,10 +303,6 @@ router.get('/pr-summary', requireAuth, async (req, res) => {
 // GET /api/workouts/history?weekOffset=N
 // and /pr-summary above
 router.get('/history', requireAuth, async (req, res) => {
-  // weekOffset: 0 = this week, -1 = last week, etc. — matches
-  // HistoryCalendar.jsx's weekOffset state exactly. Guard against garbage
-  // input (NaN, decimals, an absurd range) rather than trusting the query
-  // string — this value gets interpolated into an INTERVAL multiplication.
   const rawOffset = Number(req.query.weekOffset)
   const weekOffset =
     Number.isInteger(rawOffset) && rawOffset <= 0 && rawOffset >= -520

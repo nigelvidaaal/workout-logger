@@ -12,7 +12,7 @@ const achievementsRouter = require('./routes/r-achievements')
 const catalogRouter = require('./routes/catalog')
 const analyticsRouter = require('./routes/analytics')
 const aiRouter = require('./routes/ai')
-const favoritesRouter = require('./routes/favorites') // NEW — CLAUDE CODE, favorite-a-catalog-exercise
+const favoritesRouter = require('./routes/favorites') 
 
 const app = express()
 

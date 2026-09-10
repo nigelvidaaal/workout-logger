@@ -4,11 +4,6 @@ const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 
 // GET /api/catalog?q=... — typeahead search against the seeded exercise_catalog
-// CLAUDE CODE — bug/feature: LEFT JOINs this user's own favorites so each
-// result carries is_favorited (powers the star icon in ExerciseSearch.jsx),
-// and orders favorited matches first — so once "Tricep Extension" is
-// starred, searching "Tricep" again always puts it at the top instead of
-// wherever alphabetical order happens to land it.
 router.get('/', requireAuth, async (req, res) => {
   const q = (req.query.q || '').trim()
 

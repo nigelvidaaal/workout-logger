@@ -17,9 +17,8 @@ const LOWER_BOUND_CLAUSES = {
 }
 
 // GET /api/analytics/volume?range=week|month|all
-// total training volume (reps x weight), bucketed over time — feeds the
-// Dashboard analytics chart. Raw sets only, no exercise_catalog join needed.
 router.get('/volume', requireAuth, async (req, res) => {
+  // get the ranges varies weekly 
   const range = ALLOWED_RANGES.includes(req.query.range) ? req.query.range : 'week'
 
   // week buckets by day (7 points); month/all bucket by week (coarser over a longer span).
