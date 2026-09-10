@@ -198,6 +198,15 @@
   border-color: var(--accent);
 }
 
+/* CLAUDE CODE — set-row redesign: .input is only ever used inside
+   .addSetForm (the Reps/Weight/Set# fields) — restyled to --bg-primary so
+   the editable form visually matches the new .setValueBox fields the
+   already-saved sets are displayed in just above it, instead of the two
+   looking like two different design languages stacked on top of each other. */
+.addSetForm .input {
+  background: var(--bg-primary);
+}
+
 .muscleGroupSelect {
   flex: 1;
   min-width: 0;
@@ -244,37 +253,119 @@
   margin-bottom: 1rem;
 }
 
+/* CLAUDE CODE — exercise-card redesign (Nigel's reference screenshot):
+   align-items switched from center to flex-start since .exerciseTitleWrap
+   can now be two lines tall (title + tag row) and shouldn't vertically
+   center against the single-line "..." button beside it. position:
+   relative anchors .menuDropdown below. */
 .exerciseHeader {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 1rem;
+  position: relative;
+}
+
+.exerciseTitleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .exerciseName {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
   font-size: 1.1rem;
   font-weight: 500;
 }
 
-.deleteExerciseBtn {
+.tagRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* small uppercase pill — same "muted label" language as everywhere else in
+   this app (.emptyMessage, .headerInfo p), just boxed instead of plain text */
+.tag {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+}
+
+/* CLAUDE CODE — replaces the old always-visible "Delete" text button. Moving
+   it behind a menu (matching the reference's "...") means a stray tap
+   doesn't land directly on a destructive action — combined with the new
+   ConfirmModal confirmation on the actual delete, this is meaningfully
+   safer than what was here before, not just a reskin. */
+.menuWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.menuBtn {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  transition: color 0.15s;
+  padding: 0.3rem;
+  border-radius: var(--border-radius);
+  transition: color 0.15s, background 0.15s;
 }
 
-.deleteExerciseBtn:hover {
+.menuBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 5;
+  min-width: 160px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  transition: background 0.15s;
+}
+
+.menuItem:hover {
+  background: var(--bg-secondary);
+}
+
+.menuItemDanger {
   color: var(--accent);
 }
 
+/* CLAUDE CODE — set rows redesigned to match Nigel's reference screenshot:
+   a numbered badge, reps/weight as their own boxed fields, and a checkmark
+   badge — see the JSX for why the checkmark is a static status indicator
+   here rather than a real toggle (every rendered set already exists in the
+   database, so it's always "logged"), and why a small delete control is
+   still here even though the reference doesn't show one. */
 .setRow {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
@@ -285,16 +376,77 @@
   border-bottom: none;
 }
 
-.deleteSetBtn {
+.setNumberBadge {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* darker than the card it sits inside (--bg-primary is the app's darkest
+   surface) so each value reads as "recessed" against --bg-card — same
+   visual relationship as the reference's near-black fields inside a
+   lighter-grey card */
+.setValueBox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  padding: 0.5rem 0.6rem;
+}
+
+.setValueNum {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.setValueUnit {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+}
+
+/* CLAUDE CODE — this is the button from Nigel's reference image, recolored
+   from its green to this app's own accent orange as asked ("the yellow
+   shade of our app") instead of introducing a new color the rest of the
+   app doesn't otherwise use. */
+.setCheck {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setDeleteBtn {
+  flex-shrink: 0;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 1rem;
-  margin-left: auto;
-  transition: color 0.15s;
+  font-size: 0.95rem;
+  padding: 0.2rem 0.3rem;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
 }
 
-.deleteSetBtn:hover {
+.setDeleteBtn:hover {
+  opacity: 1;
   color: var(--accent);
 }
 
@@ -306,14 +458,20 @@
   align-items: center;
 }
 
+/* CLAUDE CODE — pill shape + uppercase/letter-spacing to match the
+   reference's "+ ADD SET" button more closely; still dashed, still full
+   width, same hover behavior as before */
 .addSetBtn {
   margin-top: 1rem;
   background: transparent;
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
-  border-radius: var(--border-radius);
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+  border: 1px dashed var(--text-muted);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.65rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   width: 100%;
   transition: all 0.15s;
 }

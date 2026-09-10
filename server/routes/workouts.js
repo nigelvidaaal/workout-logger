@@ -4,6 +4,7 @@ const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 
 const { computeMuscleVolume, computeMuscleSets, mergeGroupAmounts } = require('../muscle_split')  // adjust path
+const { MUSCLE_MAP } = require('../muscle-map')
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
 
@@ -14,12 +15,36 @@ function groupExercisesWithSets(rows) {
   // here we're accumulating an object where each key is an exercise id
   const map = rows.reduce((acc, row) => {
 
-    // if we haven't seen this exercise id before, make one 
+    // if we haven't seen this exercise id before, make one
     if (!acc[row.exercise_id]) {
+      // CLAUDE CODE — exercise-card redesign (muscle/equipment tags): needs
+      // one muscle group per exercise regardless of whether it's a catalog
+      // exercise or a custom one, which are two DIFFERENT storage paths.
+      // row.muscle_group only ever has a value for a CUSTOM exercise (see
+      // exercises.js — it's forced to null whenever catalog_id is set). A
+      // catalog exercise's muscle data instead comes from exercise_catalog
+      // (now LEFT JOINed in below as catalog_primary_muscles) as RAW
+      // dataset names (e.g. "shoulders", "lats") — MUSCLE_MAP folds those
+      // down into the same 10 final groups everywhere else in this app
+      // already uses (see muscle_split.js). This picks whichever source
+      // actually has data and normalizes both into that one shared
+      // vocabulary, so the frontend gets a single `muscle_group` field and
+      // never needs to know which path it came from.
+      const displayMuscleGroup =
+        row.muscle_group ||
+        (row.catalog_primary_muscles?.[0]
+          ? MUSCLE_MAP[row.catalog_primary_muscles[0]]
+          : null) ||
+        null
+
       acc[row.exercise_id] = {
         id: row.exercise_id,
         name: row.exercise_name,
-        muscle_group: row.muscle_group,
+        muscle_group: displayMuscleGroup,
+        // equipment only ever comes from the catalog — custom exercises have
+        // no equipment field/concept anywhere in this app, so this is just
+        // absent (null) for them rather than guessed at
+        equipment: row.catalog_equipment || null,
         sets: []
       }
     }
@@ -223,7 +248,7 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
   const customResult = await pool.query(`
     SELECT
       e.muscle_group,
-      COUNT(s.id) AS set_countz
+      COUNT(s.id) AS set_count
     FROM sets s
     JOIN exercises e ON s.exercise_id = e.id
     JOIN workouts w ON e.workout_id = w.id
@@ -364,17 +389,25 @@ router.get('/:id', requireAuth, async (req, res) => {
   // JOIN query — pulls exercises and their sets in one database call
   // LEFT JOIN ensures exercises with no sets yet are still included
   // aliases (AS exercise_id etc) prevent column name collisions between tables
+  // CLAUDE CODE — second LEFT JOIN added for the exercise-card redesign's
+  // muscle/equipment tags: exercise_catalog is matched 1:1 on catalog_id (its
+  // primary key), so this can't fan out any rows beyond what the sets JOIN
+  // already produces — a custom exercise (catalog_id IS NULL) just gets nulls
+  // back for these two columns, same as any other unmatched LEFT JOIN.
   const rowsResult = await pool.query(`
     SELECT
       exercises.id AS exercise_id,
       exercises.name AS exercise_name,
       exercises.muscle_group,
+      exercise_catalog.primary_muscles AS catalog_primary_muscles,
+      exercise_catalog.equipment AS catalog_equipment,
       sets.id AS set_id,
       sets.reps,
       sets.weight,
       sets.set_number
     FROM exercises
     LEFT JOIN sets ON sets.exercise_id = exercises.id
+    LEFT JOIN exercise_catalog ON exercise_catalog.id = exercises.catalog_id
     WHERE exercises.workout_id = $1
     ORDER BY exercises.id, sets.set_number
   `, [id])

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { MoreHorizontal, Check } from "lucide-react";
 import {
   getWorkout,
   deleteWorkout,
@@ -14,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import styles from "../styles/WorkoutDetail.module.css";
 import confetti from "canvas-confetti";
 import { ExerciseSearch } from "../components/ExerciseSearch";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { MUSCLE_GROUPS } from "../constants/muscleGroups";
 
 export function WorkoutDetail() {
@@ -40,6 +42,31 @@ export function WorkoutDetail() {
 
   // confetti effect when hitting a PR
   const [celebration, setCelebration] = useState(null);
+
+  // CLAUDE CODE — exercise-card redesign: the old always-visible "Delete"
+  // text button on every card is now tucked behind a "..." menu (matches
+  // Nigel's reference). openMenuId tracks which exercise's menu is open (an
+  // id, or null) — only one at a time. confirmingDeleteExercise holds the
+  // {id, name} pending confirmation once "Delete Exercise" is tapped in that
+  // menu; reuses the same ConfirmModal built for the logout confirmation.
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [confirmingDeleteExercise, setConfirmingDeleteExercise] =
+    useState(null);
+
+  // close the open exercise menu on any click outside it — checks for the
+  // data-exercise-menu marker (see the JSX below) rather than a ref, since
+  // this lives inside a .map() and a plain ref would only ever point at
+  // whichever card rendered last
+  useEffect(() => {
+    if (openMenuId === null) return;
+    function handleClickOutside(e) {
+      if (!e.target.closest("[data-exercise-menu]")) {
+        setOpenMenuId(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openMenuId]);
 
   // newSet — tracks which exercise we're adding a set to, plus the set values
   // exerciseId: null means no exercise is currently selected for set addition
@@ -363,28 +390,91 @@ export function WorkoutDetail() {
       {workout.exercises.map((exercise) => (
         <div key={exercise.id} className={styles.exerciseCard}>
           <div className={styles.exerciseHeader}>
-            <h3 className={styles.exerciseName}>{exercise.name}</h3>
-            <button
-              className={styles.deleteExerciseBtn}
-              onClick={() => handleDeleteExercise(exercise.id)}
-            >
-              Delete
-            </button>
+            <div className={styles.exerciseTitleWrap}>
+              <h3 className={styles.exerciseName}>{exercise.name}</h3>
+              {/* CLAUDE CODE — muscle_group is now populated for EVERY
+                  exercise (custom or catalog — see the server's GET /:id),
+                  equipment only ever for a catalog one. Either tag is
+                  simply omitted rather than shown empty/fake when its data
+                  isn't there (e.g. a custom exercise never has equipment). */}
+              {(exercise.muscle_group || exercise.equipment) && (
+                <div className={styles.tagRow}>
+                  {exercise.muscle_group && (
+                    <span className={styles.tag}>{exercise.muscle_group}</span>
+                  )}
+                  {exercise.equipment && (
+                    <span className={styles.tag}>{exercise.equipment}</span>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className={styles.menuWrap} data-exercise-menu>
+              <button
+                type="button"
+                className={styles.menuBtn}
+                onClick={() =>
+                  setOpenMenuId(openMenuId === exercise.id ? null : exercise.id)
+                }
+                aria-label="Exercise options"
+              >
+                <MoreHorizontal size={18} strokeWidth={2} />
+              </button>
+              {openMenuId === exercise.id && (
+                <div className={styles.menuDropdown}>
+                  <button
+                    type="button"
+                    className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                    onClick={() => {
+                      setOpenMenuId(null);
+                      setConfirmingDeleteExercise({
+                        id: exercise.id,
+                        name: exercise.name,
+                      });
+                    }}
+                  >
+                    Delete Exercise
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {exercise.sets.length === 0 && (
             <p className={styles.emptyMessage}>No sets yet.</p>
           )}
 
+          {/* CLAUDE CODE — set rows redesigned to match Nigel's reference:
+              a numbered badge, reps/weight as their own boxed fields, and a
+              checkmark badge in the app's accent color instead of the
+              reference's green (explicitly asked for). The checkmark is
+              NOT a button — every set rendered here already exists in the
+              database, so it's always "logged" by definition; there's no
+              draft/unconfirmed state in this app's data model the way the
+              reference's 3rd row implies, so making it clickable would be a
+              button that does nothing. Delete still needs to live
+              somewhere, so a small muted × sits after the checkmark —
+              not in the reference image, but the only way to remove a
+              mis-entered set, so it stays. */}
           {exercise.sets.map((set) => (
             <div key={set.id} className={styles.setRow}>
-              <span>Set {set.set_number}</span>
-              <span>{set.reps} reps</span>
-              {/* weight stored as REAL in SQLite — supports decimals like 22.5kg */}
-              <span>{set.weight} lbs</span>
+              <span className={styles.setNumberBadge}>{set.set_number}</span>
+              <div className={styles.setValueBox}>
+                <span className={styles.setValueNum}>{set.reps}</span>
+                <span className={styles.setValueUnit}>reps</span>
+              </div>
+              {/* weight stored as REAL — supports decimals like 22.5kg */}
+              <div className={styles.setValueBox}>
+                <span className={styles.setValueNum}>{set.weight}</span>
+                <span className={styles.setValueUnit}>lbs</span>
+              </div>
+              <span className={styles.setCheck} aria-label="Set logged">
+                <Check size={15} strokeWidth={3} />
+              </span>
               <button
-                className={styles.deleteSetBtn}
+                type="button"
+                className={styles.setDeleteBtn}
                 onClick={() => handleDeleteSet(set.id)}
+                aria-label="Delete set"
               >
                 ×
               </button>
@@ -459,6 +549,21 @@ export function WorkoutDetail() {
           )}
         </div>
       ))}
+
+      {confirmingDeleteExercise && (
+        <ConfirmModal
+          title="Delete exercise?"
+          message={`"${confirmingDeleteExercise.name}" and all of its logged sets will be gone for good.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          danger
+          onConfirm={() => {
+            handleDeleteExercise(confirmingDeleteExercise.id);
+            setConfirmingDeleteExercise(null);
+          }}
+          onCancel={() => setConfirmingDeleteExercise(null)}
+        />
+      )}
     </div>
   );
 }
