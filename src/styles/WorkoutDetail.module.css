@@ -174,15 +174,13 @@
 
 .input {
   flex: 1;
-  /* CLAUDE CODE — bug fix: this is used both as a flex item (.addExerciseForm)
-     and a CSS grid item (.addSetForm below). Both flex and grid items default
-     to min-width: auto, which means "never shrink below my content's own
-     intrinsic width" — for a plain <input> that intrinsic width is wider
-     than the narrow column it's given on a phone screen, so the Reps/Weight/
-     Set # inputs refused to shrink, forced their grid track wider than the
-     viewport, and pushed the whole card (and Save/Cancel below it) off the
-     right edge of the screen. Same root cause, same fix, as the min-width: 0
-     note on <main> in index.css. */
+  /* CLAUDE CODE — bug fix: this is used as a flex item of .addExerciseForm.
+     Flex items default to min-width: auto, which means "never shrink below
+     my content's own intrinsic width" — for a plain <input> that intrinsic
+     width is wider than the narrow column it's given on a phone screen, so
+     it refused to shrink and pushed the form off the right edge of the
+     screen. Same root cause, same fix, as the min-width: 0 note on <main>
+     in index.css. */
   min-width: 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -196,15 +194,6 @@
 .input:focus {
   outline: none;
   border-color: var(--accent);
-}
-
-/* CLAUDE CODE — set-row redesign: .input is only ever used inside
-   .addSetForm (the Reps/Weight/Set# fields) — restyled to --bg-primary so
-   the editable form visually matches the new .setValueBox fields the
-   already-saved sets are displayed in just above it, instead of the two
-   looking like two different design languages stacked on top of each other. */
-.addSetForm .input {
-  background: var(--bg-primary);
 }
 
 .muscleGroupSelect {
@@ -358,9 +347,8 @@
 
 /* CLAUDE CODE — set rows redesigned to match Nigel's reference screenshot:
    a numbered badge, reps/weight as their own boxed fields, and a checkmark
-   badge — see the JSX for why the checkmark is a static status indicator
-   here rather than a real toggle (every rendered set already exists in the
-   database, so it's always "logged"), and why a small delete control is
+   toggle — see the JSX for the "2 imprinted sets" behavior (inline-editable
+   inputs, real confirm/un-confirm toggle) and why a small delete control is
    still here even though the reference doesn't show one. */
 .setRow {
   display: flex;
@@ -407,10 +395,44 @@
   padding: 0.5rem 0.6rem;
 }
 
-.setValueNum {
+/* CLAUDE CODE — .setValueBox's number used to be a static <span>
+   (.setValueNum); it's a real <input> now (see the JSX) so the value is
+   directly editable in place. Styled to disappear into the surrounding box
+   rather than look like a distinct input — no border/background of its
+   own, just text, same as the old span looked. */
+.setValueInput {
+  width: 100%;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
   font-size: 0.95rem;
   font-weight: 600;
-  color: var(--text-primary);
+  font-family: inherit;
+  text-align: center;
+  padding: 0;
+}
+
+.setValueInput:focus {
+  outline: none;
+}
+
+/* hides the number-input spinner arrows for a cleaner boxed look, matching
+   every other numeric input in this app */
+.setValueInput::-webkit-outer-spin-button,
+.setValueInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.setValueInput[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* focus ring lives on the box itself rather than the borderless input
+   inside it, so tabbing into a field still gives a clear visual cue */
+.setValueBox:focus-within {
+  border-color: var(--accent);
 }
 
 .setValueUnit {
@@ -418,20 +440,46 @@
   color: var(--text-muted);
 }
 
-/* CLAUDE CODE — this is the button from Nigel's reference image, recolored
-   from its green to this app's own accent orange as asked ("the yellow
-   shade of our app") instead of introducing a new color the rest of the
-   app doesn't otherwise use. */
+/* CLAUDE CODE — the checkmark is a real toggle button now (was a static
+   "logged" badge — every set used to exist in the database already
+   confirmed; now a set can be an unconfirmed draft, see the JSX). Unconfirmed
+   state stays outlined/muted so it reads as "not done yet"; confirmed state
+   fills with the app's accent orange — recolored from Nigel's reference
+   image's green, as asked ("the yellow shade of our app"). */
 .setCheck {
   flex-shrink: 0;
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: var(--accent);
-  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.setCheck:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.setCheck:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.setCheckConfirmed {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.setCheckConfirmed:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: var(--text-primary);
 }
 
 .setDeleteBtn {
@@ -448,14 +496,6 @@
 .setDeleteBtn:hover {
   opacity: 1;
   color: var(--accent);
-}
-
-.addSetForm {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto auto;
-  gap: 0.5rem;
-  margin-top: 1rem;
-  align-items: center;
 }
 
 /* CLAUDE CODE — pill shape + uppercase/letter-spacing to match the
@@ -479,15 +519,6 @@
 .addSetBtn:hover {
   border-color: var(--accent);
   color: var(--accent);
-}
-
-.cancelBtn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  border-radius: var(--border-radius);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
 }
 
 .emptyMessage {
@@ -518,16 +549,6 @@
 }
 
 @media (max-width: 640px) {
-  .addSetForm {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  
-  .addBtn,
-  .cancelBtn {
-    grid-column: 1 / -1;
-  }
-
   .addExerciseForm {
     flex-direction: column;
   }

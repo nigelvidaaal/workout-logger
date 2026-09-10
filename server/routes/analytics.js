@@ -34,6 +34,10 @@ router.get('/volume', requireAuth, async (req, res) => {
     JOIN exercises e ON s.exercise_id = e.id
     JOIN workouts w ON e.workout_id = w.id
     WHERE w.user_id = $1
+      -- CLAUDE CODE — "2 imprinted sets": an unconfirmed draft row (possibly
+      -- null reps/weight) must never count toward volume, same reasoning as
+      -- every other stats query in this app
+      AND s.completed = true
       ${LOWER_BOUND_CLAUSES[range]}
     GROUP BY bucket
     ORDER BY bucket
@@ -57,6 +61,7 @@ router.get('/exercises', requireAuth, async (req, res) => {
     JOIN exercises e ON s.exercise_id = e.id
     JOIN workouts w ON e.workout_id = w.id
     WHERE w.user_id = $1
+      AND s.completed = true
       ${LOWER_BOUND_CLAUSES[range]}
     GROUP BY LOWER(e.name)
     ORDER BY total_volume DESC

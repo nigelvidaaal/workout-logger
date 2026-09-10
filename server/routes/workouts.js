@@ -4,9 +4,10 @@ const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
 
 const { computeMuscleVolume, computeMuscleSets, mergeGroupAmounts } = require('../muscle_split')  // adjust path
-const { MUSCLE_MAP } = require('../muscle-map')
 const { APP_TIMEZONE } = require('../constants/timezone')
 const { TIERS } = require('../achievements')
+const { MUSCLE_MAP } = require('../muscle-map')
+const { seedStarterSets } = require('../seed-sets')
 
 // helper — transforms flat JOIN rows into nested exercise objects with sets arrays
 function groupExercisesWithSets(rows) {
@@ -17,34 +18,26 @@ function groupExercisesWithSets(rows) {
 
     // if we haven't seen this exercise id before, make one
     if (!acc[row.exercise_id]) {
-      // CLAUDE CODE — exercise-card redesign (muscle/equipment tags): needs
-      // one muscle group per exercise regardless of whether it's a catalog
-      // exercise or a custom one, which are two DIFFERENT storage paths.
-      // row.muscle_group only ever has a value for a CUSTOM exercise (see
-      // exercises.js — it's forced to null whenever catalog_id is set). A
-      // catalog exercise's muscle data instead comes from exercise_catalog
-      // (now LEFT JOINed in below as catalog_primary_muscles) as RAW
-      // dataset names (e.g. "shoulders", "lats") — MUSCLE_MAP folds those
-      // down into the same 10 final groups everywhere else in this app
-      // already uses (see muscle_split.js). This picks whichever source
-      // actually has data and normalizes both into that one shared
-      // vocabulary, so the frontend gets a single `muscle_group` field and
-      // never needs to know which path it came from.
-      const displayMuscleGroup =
-        row.muscle_group ||
-        (row.catalog_primary_muscles?.[0]
-          ? MUSCLE_MAP[row.catalog_primary_muscles[0]]
-          : null) ||
-        null
+      // CLAUDE CODE — unify muscle_group so the frontend always has ONE
+      // field to read regardless of where an exercise came from. A catalog
+      // exercise's muscle data lives on exercise_catalog (primary_muscles is
+      // a raw dataset name like "lats"), so it's routed through MUSCLE_MAP
+      // to land on the same 10 chart-bucket names the anatomy chart uses. A
+      // custom exercise's muscle_group column is ALREADY one of those final
+      // bucket names (see exercises.js's ALLOWED_MUSCLE_GROUPS) — routing it
+      // through MUSCLE_MAP a second time would look up a key that doesn't
+      // exist (there's no "back": "back" entry) and silently return
+      // undefined, so it's used as-is instead. equipment only ever exists
+      // for a catalog exercise.
+      const muscleGroup = row.catalog_id
+        ? (MUSCLE_MAP[row.primary_muscles?.[0]] ?? null)
+        : row.custom_muscle_group
 
       acc[row.exercise_id] = {
         id: row.exercise_id,
         name: row.exercise_name,
-        muscle_group: displayMuscleGroup,
-        // equipment only ever comes from the catalog — custom exercises have
-        // no equipment field/concept anywhere in this app, so this is just
-        // absent (null) for them rather than guessed at
-        equipment: row.catalog_equipment || null,
+        muscle_group: muscleGroup,
+        equipment: row.equipment ?? null,
         sets: []
       }
     }
@@ -57,13 +50,18 @@ function groupExercisesWithSets(rows) {
         id: row.set_id,
         reps: row.reps,
         weight: row.weight,
-        set_number: row.set_number
+        set_number: row.set_number,
+        // CLAUDE CODE — "2 imprinted sets": whether this set has actually
+        // been logged (tapped the checkmark) or is still an editable draft.
+        // See sets.js for the PATCH-time confirm logic and every stats
+        // query in this file for why only completed sets count.
+        completed: row.completed
       })
     }
     return acc
   }, {})
 
-  // convert the object of exercises into an array 
+  // convert the object of exercises into an array
   return Object.values(map)
 }
 
@@ -150,12 +148,16 @@ router.post('/:id/log-today', requireAuth, async (req, res) => {
     const newWorkout = newWorkoutResult.rows[0]
 
     // clone each exercise onto the new workout, one INSERT at a time (not
-    // Promise.all)
+    // Promise.all). RETURNING id was added so each freshly-cloned exercise
+    // can immediately get its own 2 starter sets, same as a manually-added
+    // exercise — "log today" shouldn't feel any different from picking the
+    // exercises one at a time.
     for (const ex of exercisesResult.rows) {
-      await pool.query(
-        'INSERT INTO exercises (workout_id, name, muscle_group, catalog_id) VALUES ($1, $2, $3, $4)',
+      const insertResult = await pool.query(
+        'INSERT INTO exercises (workout_id, name, muscle_group, catalog_id) VALUES ($1, $2, $3, $4) RETURNING id',
         [newWorkout.id, ex.name, ex.muscle_group, ex.catalog_id]
       )
+      await seedStarterSets(req.userId, insertResult.rows[0].id, ex.name)
     }
 
     res.status(201).json(newWorkout)
@@ -190,11 +192,15 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
     JOIN workouts w ON e.workout_id = w.id
     JOIN exercise_catalog ec ON e.catalog_id = ec.id
     WHERE w.user_id = $1
+      -- CLAUDE CODE — "2 imprinted sets": unconfirmed draft rows (possibly
+      -- null reps/weight) must never count toward tonnage, same reasoning
+      -- everywhere else a stats query touches the sets table.
+      AND s.completed = true
       ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
 
-  // user's inputted exercise 
+  // user's inputted exercise
   const customResult = await pool.query(`
     SELECT
       e.muscle_group,
@@ -205,6 +211,7 @@ router.get('/muscle-volume', requireAuth, async (req, res) => {
     WHERE w.user_id = $1
       AND e.catalog_id IS NULL
       AND e.muscle_group IS NOT NULL
+      AND s.completed = true
       ${dateClause}
     GROUP BY e.muscle_group
   `, [req.userId])
@@ -239,12 +246,18 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
     JOIN workouts w ON e.workout_id = w.id
     JOIN exercise_catalog ec ON e.catalog_id = ec.id
     WHERE w.user_id = $1
+      -- CLAUDE CODE — same "don't count drafts" reasoning as /muscle-volume above
+      AND s.completed = true
       ${dateClause}
     GROUP BY ec.id, ec.primary_muscles, ec.secondary_muscles
   `, [req.userId])
 
-  // same custom-exercise gap/fix as /muscle-volume
-  // above, just counting sets instead of tonnage.
+  // same custom-exercise gap/fix as /muscle-volume above, just counting
+  // sets instead of tonnage. CLAUDE CODE — re-fixed a "set_countz" typo
+  // here (extra "z") that had crept back in: mergeGroupAmounts(sets,
+  // customResult.rows, 'set_count') below looks up row['set_count'], so the
+  // mismatched alias silently made every custom exercise's contribution
+  // NaN, corrupting the Muscle Balance stats the same way it did before.
   const customResult = await pool.query(`
     SELECT
       e.muscle_group,
@@ -255,6 +268,7 @@ router.get('/muscle-sets', requireAuth, async (req, res) => {
     WHERE w.user_id = $1
       AND e.catalog_id IS NULL
       AND e.muscle_group IS NOT NULL
+      AND s.completed = true
       ${dateClause}
     GROUP BY e.muscle_group
   `, [req.userId])
@@ -361,7 +375,9 @@ router.get('/history', requireAuth, async (req, res) => {
         AND w.is_template = false
         AND DATE(w.date AT TIME ZONE 'UTC' AT TIME ZONE '${APP_TIMEZONE}') = day_series.day
       LEFT JOIN exercises e ON e.workout_id = w.id
-      LEFT JOIN sets s ON s.exercise_id = e.id
+      -- CLAUDE CODE — only confirmed sets count toward a day's "did I train"
+      -- history, same reasoning as every other stats query in this file
+      LEFT JOIN sets s ON s.exercise_id = e.id AND s.completed = true
       GROUP BY day_series.day
       ORDER BY day_series.day
     `, [req.userId, weekOffset])
@@ -389,25 +405,26 @@ router.get('/:id', requireAuth, async (req, res) => {
   // JOIN query — pulls exercises and their sets in one database call
   // LEFT JOIN ensures exercises with no sets yet are still included
   // aliases (AS exercise_id etc) prevent column name collisions between tables
-  // CLAUDE CODE — second LEFT JOIN added for the exercise-card redesign's
-  // muscle/equipment tags: exercise_catalog is matched 1:1 on catalog_id (its
-  // primary key), so this can't fan out any rows beyond what the sets JOIN
-  // already produces — a custom exercise (catalog_id IS NULL) just gets nulls
-  // back for these two columns, same as any other unmatched LEFT JOIN.
+  // CLAUDE CODE — re-added the exercise_catalog join (was missing from this
+  // query even though groupExercisesWithSets/the frontend both already
+  // expect a unified muscle_group + equipment — restored here rather than
+  // built fresh) and added sets.completed for the "2 imprinted sets" feature.
   const rowsResult = await pool.query(`
     SELECT
       exercises.id AS exercise_id,
       exercises.name AS exercise_name,
-      exercises.muscle_group,
-      exercise_catalog.primary_muscles AS catalog_primary_muscles,
-      exercise_catalog.equipment AS catalog_equipment,
+      exercises.catalog_id,
+      exercises.muscle_group AS custom_muscle_group,
+      ec.primary_muscles,
+      ec.equipment,
       sets.id AS set_id,
       sets.reps,
       sets.weight,
-      sets.set_number
+      sets.set_number,
+      sets.completed
     FROM exercises
+    LEFT JOIN exercise_catalog ec ON exercises.catalog_id = ec.id
     LEFT JOIN sets ON sets.exercise_id = exercises.id
-    LEFT JOIN exercise_catalog ON exercise_catalog.id = exercises.catalog_id
     WHERE exercises.workout_id = $1
     ORDER BY exercises.id, sets.set_number
   `, [id])
@@ -436,6 +453,9 @@ router.get('/progress/:exerciseName', requireAuth, async(req, res) => {
     JOIN workouts ON exercises.workout_id = workouts.id
     WHERE exercises.name = $1
     AND workouts.user_id = $2
+    -- CLAUDE CODE — draft/unconfirmed sets shouldn't show up as a "max
+    -- weight this session" data point on the progress chart
+    AND sets.completed = true
     GROUP BY workouts.date
     ORDER BY workouts.date ASC
   `, [ exerciseName, req.userId])

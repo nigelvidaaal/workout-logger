@@ -39,14 +39,31 @@ async function setup() {
     -- so this ALTER is what actually adds the column there. Safe to rerun.
     ALTER TABLE exercises ADD COLUMN IF NOT EXISTS muscle_group TEXT;
 
+    -- CLAUDE CODE — "2 imprinted sets" feature: reps/weight are nullable now
+    -- because a set can exist as an unconfirmed draft row (completed: false)
+    -- before the user has typed anything into it — see seed-sets.js and
+    -- server/routes/sets.js. completed defaults to true so this definition
+    -- still matches a totally fresh database's expectations for old-style
+    -- "every set that exists was already logged" rows.
     CREATE TABLE IF NOT EXISTS sets (
       id SERIAL PRIMARY KEY,
       exercise_id INTEGER NOT NULL,
-      reps INTEGER NOT NULL,
-      weight REAL NOT NULL,
+      reps INTEGER,
+      weight REAL,
       set_number INTEGER NOT NULL,
+      completed BOOLEAN NOT NULL DEFAULT true,
       FOREIGN KEY (exercise_id) REFERENCES exercises(id)
     );
+
+    -- CREATE TABLE IF NOT EXISTS above is a no-op against the already-existing
+    -- prod table, so these ALTERs are what actually apply the change there —
+    -- same pattern as the muscle_group/catalog_id ALTERs elsewhere in this
+    -- file. Existing rows all default to completed = true, so every set ever
+    -- actually logged before this migration stays "confirmed" and keeps
+    -- counting toward stats exactly as it did before.
+    ALTER TABLE sets ADD COLUMN IF NOT EXISTS completed BOOLEAN NOT NULL DEFAULT true;
+    ALTER TABLE sets ALTER COLUMN reps DROP NOT NULL;
+    ALTER TABLE sets ALTER COLUMN weight DROP NOT NULL;
 
     CREATE TABLE IF NOT EXISTS prs (
       id SERIAL PRIMARY KEY,

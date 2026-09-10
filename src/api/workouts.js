@@ -116,15 +116,31 @@ export async function deleteExercise(token, id) {
   return handleResponse(response, 'Failed to delete exercise')
 }
 
-// POST /api/sets — add a set to an exercise
-export async function createSet(token, exerciseId, reps, weight, set_number) {
+// POST /api/sets — add one unconfirmed set to an exercise. CLAUDE CODE —
+// simplified for the "2 imprinted sets" redesign: the server now works out
+// set_number and pre-fills reps/weight from history itself (see
+// server/seed-sets.js), so the only thing the client needs to say is which
+// exercise this new row belongs to.
+export async function createSet(token, exerciseId) {
   const response = await fetch(`${BASE_URL}/sets`, {
     method: 'POST',
     headers: authHeaders(token),
     // exerciseId goes in the body — sets are mounted at /api/sets not nested in URL
-    body: JSON.stringify({ exerciseId, reps, weight, set_number })
+    body: JSON.stringify({ exerciseId })
   })
   return handleResponse(response, 'Failed to create set')
+}
+
+// PATCH /api/sets/:id — CLAUDE CODE — new: edits an existing set's
+// reps/weight, and/or toggles `completed` (the checkmark). Pass only the
+// fields that changed — the server keeps whatever isn't sent.
+export async function updateSet(token, id, { reps, weight, completed } = {}) {
+  const response = await fetch(`${BASE_URL}/sets/${id}`, {
+    method: 'PATCH',
+    headers: authHeaders(token),
+    body: JSON.stringify({ reps, weight, completed })
+  })
+  return handleResponse(response, 'Failed to update set')
 }
 
 // DELETE /api/sets/:id — delete a set

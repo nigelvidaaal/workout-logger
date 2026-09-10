@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const pool = require('../db-pg')
 const requireAuth = require('../middleware/auth')
+const { seedStarterSets } = require('../seed-sets')
 
 const ALLOWED_MUSCLE_GROUPS = [
   'chest', 'back', 'shoulders', 'biceps', 'triceps',
@@ -48,6 +49,15 @@ router.post('/:workoutId/exercises', requireAuth, async(req, res) => {
 
     // fetch and return the newly created exercise
     const newExercise = result.rows[0]
+
+    // CLAUDE CODE — "2 imprinted sets" redesign: a new exercise now arrives
+    // pre-built with 2 unconfirmed starter sets instead of the user opening
+    // a separate add-set popup form. Skipped for a template — templates
+    // hold exercises only, sets always belong to a specific dated session
+    // (see workouts.js's is_template comments / the /:id/log-today route).
+    if (!workout.is_template) {
+      await seedStarterSets(req.userId, newExercise.id, newExercise.name)
+    }
 
     // return
     res.status(201).json(newExercise)

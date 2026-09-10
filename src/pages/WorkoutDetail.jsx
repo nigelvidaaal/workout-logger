@@ -8,6 +8,7 @@ import {
   createExercise,
   deleteExercise,
   createSet,
+  updateSet,
   deleteSet,
 } from "../api/workouts";
 import { useAuth } from "../context/AuthContext";
@@ -68,14 +69,15 @@ export function WorkoutDetail() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openMenuId]);
 
-  // newSet — tracks which exercise we're adding a set to, plus the set values
-  // exerciseId: null means no exercise is currently selected for set addition
-  const [newSet, setNewSet] = useState({
-    exerciseId: null,
-    reps: " ",
-    weight: " ",
-    set_number: " ",
-  });
+  // CLAUDE CODE — "2 imprinted sets" redesign: the separate Reps/Weight/
+  // Set# popup form (newSet/handleAddSet/handleOpenAddSet) is gone. Every
+  // set row is now inline-editable directly in the card, and `drafts` holds
+  // in-progress typing that hasn't been saved to the server yet — keyed by
+  // set id, e.g. { [setId]: { reps: "8", weight: "135" } }. A field with no
+  // entry here just falls back to whatever the server last returned for it
+  // (see resolveFieldValue below). Cleared for a set once its value is
+  // confirmed or successfully auto-saved.
+  const [drafts, setDrafts] = useState({});
 
   // token comes from auth context — passed to every API call
   const { token } = useAuth();
@@ -169,47 +171,6 @@ export function WorkoutDetail() {
     }
   }
 
-  async function handleAddSet(e) {
-    e.preventDefault();
-    try {
-      // newSet.exerciseId tells the server which exercise this set belongs to
-      // reps, weight, set_number are the actual set values
-      const result = await createSet(
-        token,
-        newSet.exerciseId,
-        newSet.reps,
-        newSet.weight,
-        newSet.set_number,
-      );
-
-      if (result.isPR) {
-        const exercise = workout.exercises.find(
-          (ex) => ex.id === newSet.exerciseId,
-        );
-        const exerciseName = exercise?.name;
-
-        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
-        setCelebration({
-          weight: result.weight,
-          exerciseName: exerciseName, // NEW — pass it into celebration state
-          achievements: result.unlockedAchievements,
-        });
-      }
-
-      // refetch so the new set appears under the right exercise
-      await fetchWorkout();
-      // reset set form but keep exerciseId so user can add another set to same exercise
-      setNewSet({
-        exerciseId: newSet.exerciseId,
-        reps: "",
-        weight: "",
-        set_number: "",
-      });
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
   async function handleDeleteSet(setId) {
     try {
       await deleteSet(token, setId);
@@ -219,24 +180,100 @@ export function WorkoutDetail() {
     }
   }
 
-  // CLAUDE CODE — "repeating sets" (punch list): opens the add-set form for
-  // an exercise pre-filled from that exercise's own last set, instead of
-  // always starting blank. Most sets on the same exercise use the same
-  // reps/weight as the one before it (3 sets of the same bench press weight,
-  // for example) — this means tapping Save is usually enough, no retyping.
-  // exercise.sets is already ordered by set_number ASC (see the server's
-  // /:id query), so the last element is the most recently added set.
-  // set_number auto-increments too — you're always adding the NEXT set.
-  // A brand-new exercise with no sets yet still opens fully blank, same as
-  // before, since there's nothing to repeat from.
-  function handleOpenAddSet(exercise) {
-    const lastSet = exercise.sets[exercise.sets.length - 1];
-    setNewSet({
-      exerciseId: exercise.id,
-      reps: lastSet ? String(lastSet.reps) : "",
-      weight: lastSet ? String(lastSet.weight) : "",
-      set_number: lastSet ? String(lastSet.set_number + 1) : "1",
+  // CLAUDE CODE — "2 imprinted sets" redesign: resolves what a set's field
+  // should actually show/save — an in-progress local draft if the user has
+  // typed into it, otherwise whatever the server last returned. Converts to
+  // a number (or null for blank/invalid), since reps/weight are stored as
+  // numbers (or null, for a still-empty draft row) on the server.
+  function resolveFieldValue(set, field) {
+    const draftValue = drafts[set.id]?.[field];
+    const raw = draftValue !== undefined ? draftValue : set[field];
+    if (raw === null || raw === undefined || raw === "") return null;
+    const num = Number(raw);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function handleFieldChange(setId, field, value) {
+    setDrafts((prev) => ({
+      ...prev,
+      [setId]: { ...prev[setId], [field]: value },
+    }));
+  }
+
+  function clearDraft(setId) {
+    setDrafts((prev) => {
+      if (!(setId in prev)) return prev;
+      const next = { ...prev };
+      delete next[setId];
+      return next;
     });
+  }
+
+  // auto-saves an edited field once the user taps/tabs away from it — this
+  // is what keeps a not-yet-confirmed row's typing from getting lost if
+  // some OTHER mutation elsewhere on the page triggers a refetch (every
+  // mutation in this file refetches the whole workout — see fetchWorkout
+  // calls throughout) before this row has been confirmed.
+  async function handleFieldBlur(set) {
+    const reps = resolveFieldValue(set, "reps");
+    const weight = resolveFieldValue(set, "weight");
+    // nothing actually changed from what the server already has — skip the round trip
+    if (reps === set.reps && weight === set.weight) return;
+
+    try {
+      await updateSet(token, set.id, { reps, weight });
+      clearDraft(set.id);
+      await fetchWorkout();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // the checkmark — confirms (or un-confirms) a set. Bidirectional on
+  // purpose: tapping it again un-logs the set instead of it being a
+  // one-way action, so a misclick is easy to undo rather than needing a
+  // delete-and-redo. Confirming sends whatever reps/weight are currently
+  // resolved (draft or saved) so there's no dependency on a blur having
+  // already fired first.
+  async function handleConfirmSet(set, exercise) {
+    const nowConfirming = !set.completed;
+    const reps = resolveFieldValue(set, "reps");
+    const weight = resolveFieldValue(set, "weight");
+
+    try {
+      const result = await updateSet(token, set.id, {
+        reps,
+        weight,
+        completed: nowConfirming,
+      });
+
+      if (result.isPR) {
+        confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+        setCelebration({
+          weight: result.weight,
+          exerciseName: exercise.name,
+          achievements: result.unlockedAchievements,
+        });
+      }
+
+      clearDraft(set.id);
+      await fetchWorkout();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  // "+ Add Set" — appends one more unconfirmed row in the same inline
+  // style as the 2 starter sets, instead of opening a popup form. The
+  // server works out its set_number and pre-fills reps/weight from history
+  // itself (see server/seed-sets.js).
+  async function handleAppendSet(exerciseId) {
+    try {
+      await createSet(token, exerciseId);
+      await fetchWorkout();
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   // early returns — same pattern as every other page
@@ -443,43 +480,77 @@ export function WorkoutDetail() {
             <p className={styles.emptyMessage}>No sets yet.</p>
           )}
 
-          {/* CLAUDE CODE — set rows redesigned to match Nigel's reference:
-              a numbered badge, reps/weight as their own boxed fields, and a
-              checkmark badge in the app's accent color instead of the
-              reference's green (explicitly asked for). The checkmark is
-              NOT a button — every set rendered here already exists in the
-              database, so it's always "logged" by definition; there's no
-              draft/unconfirmed state in this app's data model the way the
-              reference's 3rd row implies, so making it clickable would be a
-              button that does nothing. Delete still needs to live
-              somewhere, so a small muted × sits after the checkmark —
-              not in the reference image, but the only way to remove a
-              mis-entered set, so it stays. */}
-          {exercise.sets.map((set) => (
-            <div key={set.id} className={styles.setRow}>
-              <span className={styles.setNumberBadge}>{set.set_number}</span>
-              <div className={styles.setValueBox}>
-                <span className={styles.setValueNum}>{set.reps}</span>
-                <span className={styles.setValueUnit}>reps</span>
+          {/* CLAUDE CODE — "2 imprinted sets" redesign: a new exercise now
+              arrives with 2 of these rows already built (server-side, see
+              seed-sets.js), inline-editable from the start — no more
+              separate Reps/Weight/Set# popup form. reps/weight render as
+              real <input> elements (still boxed to look like the earlier
+              static display), and the checkmark is now a real toggle
+              button: tap to confirm/log the set (disabled until both
+              fields resolve to a real number), tap again to un-confirm —
+              bidirectional on purpose, so a misclick doesn't need a
+              delete-and-redo to fix. Delete (×) still removes the row
+              entirely regardless of confirmed state. */}
+          {exercise.sets.map((set) => {
+            const reps = resolveFieldValue(set, "reps");
+            const weight = resolveFieldValue(set, "weight");
+            const canConfirm = set.completed || (reps !== null && weight !== null);
+
+            return (
+              <div key={set.id} className={styles.setRow}>
+                <span className={styles.setNumberBadge}>{set.set_number}</span>
+                <div className={styles.setValueBox}>
+                  <input
+                    className={styles.setValueInput}
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="—"
+                    value={drafts[set.id]?.reps ?? set.reps ?? ""}
+                    onChange={(e) =>
+                      handleFieldChange(set.id, "reps", e.target.value)
+                    }
+                    onBlur={() => handleFieldBlur(set)}
+                    aria-label={`Set ${set.set_number} reps`}
+                  />
+                  <span className={styles.setValueUnit}>reps</span>
+                </div>
+                {/* weight stored as REAL — supports decimals like 22.5kg */}
+                <div className={styles.setValueBox}>
+                  <input
+                    className={styles.setValueInput}
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="—"
+                    value={drafts[set.id]?.weight ?? set.weight ?? ""}
+                    onChange={(e) =>
+                      handleFieldChange(set.id, "weight", e.target.value)
+                    }
+                    onBlur={() => handleFieldBlur(set)}
+                    aria-label={`Set ${set.set_number} weight`}
+                  />
+                  <span className={styles.setValueUnit}>lbs</span>
+                </div>
+                <button
+                  type="button"
+                  className={`${styles.setCheck} ${set.completed ? styles.setCheckConfirmed : ""}`}
+                  onClick={() => handleConfirmSet(set, exercise)}
+                  disabled={!canConfirm}
+                  aria-label={set.completed ? "Mark set unconfirmed" : "Confirm set"}
+                  aria-pressed={set.completed}
+                >
+                  <Check size={15} strokeWidth={3} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.setDeleteBtn}
+                  onClick={() => handleDeleteSet(set.id)}
+                  aria-label="Delete set"
+                >
+                  ×
+                </button>
               </div>
-              {/* weight stored as REAL — supports decimals like 22.5kg */}
-              <div className={styles.setValueBox}>
-                <span className={styles.setValueNum}>{set.weight}</span>
-                <span className={styles.setValueUnit}>lbs</span>
-              </div>
-              <span className={styles.setCheck} aria-label="Set logged">
-                <Check size={15} strokeWidth={3} />
-              </span>
-              <button
-                type="button"
-                className={styles.setDeleteBtn}
-                onClick={() => handleDeleteSet(set.id)}
-                aria-label="Delete set"
-              >
-                ×
-              </button>
-            </div>
-          ))}
+            );
+          })}
           {/* templates hold exercises only, never sets, sets belong to a
               specific dated session, and a template has no date.*/}
           {workout.is_template ? (
@@ -487,62 +558,11 @@ export function WorkoutDetail() {
               Sets aren't logged on saved workouts — use "Set as Workout for
               Today" from the list to start logging.
             </p>
-          ) : /* conditional set form — only one exercise can have the form open at a time
-              newSet.exerciseId tracks which exercise is currently being added to
-              when it matches THIS exercise's id, show the form — otherwise show the button */
-          newSet.exerciseId === exercise.id ? (
-            <form onSubmit={handleAddSet} className={styles.addSetForm}>
-              <input
-                className={styles.input}
-                type="number"
-                placeholder="Reps"
-                value={newSet.reps}
-                onChange={(e) => setNewSet({ ...newSet, reps: e.target.value })}
-                required
-              />
-              <input
-                className={styles.input}
-                type="number"
-                placeholder="Weight (lbs)"
-                value={newSet.weight}
-                onChange={(e) =>
-                  setNewSet({ ...newSet, weight: e.target.value })
-                }
-                required
-              />
-              <input
-                className={styles.input}
-                type="number"
-                placeholder="Set #"
-                value={newSet.set_number}
-                onChange={(e) =>
-                  setNewSet({ ...newSet, set_number: e.target.value })
-                }
-                required
-              />
-              <button type="submit" className={styles.addBtn}>
-                Save
-              </button>
-              {/* type="button" prevents this from triggering the form's onSubmit */}
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={() =>
-                  setNewSet({
-                    exerciseId: null,
-                    reps: "",
-                    weight: "",
-                    set_number: "",
-                  })
-                }
-              >
-                Cancel
-              </button>
-            </form>
           ) : (
             <button
+              type="button"
               className={styles.addSetBtn}
-              onClick={() => handleOpenAddSet(exercise)}
+              onClick={() => handleAppendSet(exercise.id)}
             >
               + Add Set
             </button>
